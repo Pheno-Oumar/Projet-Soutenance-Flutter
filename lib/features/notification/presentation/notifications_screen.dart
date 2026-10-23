@@ -81,7 +81,7 @@ class NotificationsScreen extends ConsumerWidget {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            notif.dateCreation ?? 'Récemment',
+                            notif.dateCreationFormatee,
                             style: TextStyle(
                               fontSize: 12,
                               color: sheetDark ? AppColors.darkTextMuted : Colors.grey[600],
@@ -342,7 +342,7 @@ class NotificationsScreen extends ConsumerWidget {
 
                     // Date & catégorie
                     Text(
-                      notif.dateCreation ?? 'Aujourd\'hui',
+                      notif.dateCreationFormatee,
                       style: TextStyle(
                         fontSize: 11.5,
                         color: isDark ? AppColors.darkTextMuted : Colors.grey[600],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../data/rendezvous_mock_data.dart';
 
 class RendezvousSalonSelector extends StatelessWidget {
@@ -48,7 +49,7 @@ class RendezvousSalonSelector extends StatelessWidget {
                 Text(
                   'Sélectionnez un salon',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: ctx.fontSize(18),
                     fontWeight: FontWeight.w800,
                     color: sheetDark ? AppColors.darkTextPrimary : AppColors.figmaBrown,
                   ),
@@ -57,7 +58,7 @@ class RendezvousSalonSelector extends StatelessWidget {
                 Text(
                   'Filtrez vos rendez-vous par salon',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: ctx.fontSize(13),
                     color: sheetDark ? AppColors.darkTextSecondary : Colors.grey[600],
                   ),
                 ),
@@ -71,8 +72,8 @@ class RendezvousSalonSelector extends StatelessWidget {
                     side: BorderSide(
                       color: selectedSalon == null
                           ? AppColors.figmaActiveGold
-                          : (sheetDark ? AppColors.darkBorder : Colors.grey.shade200),
-                      width: selectedSalon == null ? 1.5 : 1.0,
+                          : (sheetDark ? AppColors.darkBorder : AppColors.lightBorder),
+                      width: 1.0,
                     ),
                   ),
                   tileColor: selectedSalon == null
@@ -98,13 +99,14 @@ class RendezvousSalonSelector extends StatelessWidget {
                     'Tous les salons',
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: 15,
+                      fontSize: ctx.fontSize(15),
                       color: sheetDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                     ),
                   ),
                   subtitle: Text(
                     '$totalRendezVous rendez-vous au total',
                     style: TextStyle(
+                      fontSize: ctx.fontSize(12),
                       color: sheetDark ? AppColors.darkTextSecondary : Colors.grey[600],
                     ),
                   ),
@@ -131,8 +133,8 @@ class RendezvousSalonSelector extends StatelessWidget {
                         side: BorderSide(
                           color: isSelected
                               ? AppColors.figmaActiveGold
-                              : (sheetDark ? AppColors.darkBorder : Colors.grey.shade200),
-                          width: isSelected ? 1.5 : 1.0,
+                              : (sheetDark ? AppColors.darkBorder : AppColors.lightBorder),
+                          width: 1.0,
                         ),
                       ),
                       tileColor: isSelected
@@ -169,14 +171,14 @@ class RendezvousSalonSelector extends StatelessWidget {
                         salon.nom,
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
-                          fontSize: 14.5,
+                          fontSize: ctx.fontSize(14.5),
                           color: sheetDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                         ),
                       ),
                       subtitle: Text(
                         salon.adresse,
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: ctx.fontSize(12),
                           color: sheetDark ? AppColors.darkTextSecondary : Colors.grey[600],
                         ),
                         maxLines: 1,
@@ -215,9 +217,8 @@ class RendezvousSalonSelector extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF6EFE7),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark ? AppColors.darkBorder : const Color(0xFFD8A868),
-            width: 1.2,
+          border: context.symmetricBorder(
+            borderColor: isDark ? AppColors.darkBorder : const Color(0xFFD8A868),
           ),
           boxShadow: [
             BoxShadow(
@@ -286,15 +287,18 @@ class RendezvousSalonSelector extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      color: isDark ? AppColors.darkTextPrimary : const Color(0xFF2E1C15),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: context.fontSize(15),
+                        fontWeight: FontWeight.w800,
+                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF2E1C15),
+                      ),
+                      maxLines: 1,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Row(
@@ -311,7 +315,7 @@ class RendezvousSalonSelector extends StatelessWidget {
                         child: Text(
                           subtitle,
                           style: TextStyle(
-                            fontSize: 12,
+                            fontSize: context.fontSize(12),
                             color: isDark ? AppColors.darkTextSecondary : Colors.grey[700],
                           ),
                           maxLines: 1,

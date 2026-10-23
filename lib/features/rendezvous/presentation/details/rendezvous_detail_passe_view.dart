@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../data/models/rendezvous_model.dart';
 import '../widgets/rendezvous_header_widget.dart';
 import '../widgets/rendezvous_info_card.dart';
@@ -33,7 +34,12 @@ class RendezVousDetailPasseView extends StatelessWidget {
           // Contenu déroulant
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: context.responsiveValue(compact: 70.0, standard: 80.0),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -41,7 +47,7 @@ class RendezVousDetailPasseView extends StatelessWidget {
                   Text(
                     'Prestations',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: context.fontSize(16),
                       fontWeight: FontWeight.w800,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                     ),
@@ -54,7 +60,7 @@ class RendezVousDetailPasseView extends StatelessWidget {
                   Text(
                     'Informations',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: context.fontSize(16),
                       fontWeight: FontWeight.w800,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                     ),
@@ -66,7 +72,7 @@ class RendezVousDetailPasseView extends StatelessWidget {
                   // Action optionnelle: Reprendre rendez-vous
                   SizedBox(
                     width: double.infinity,
-                    height: 48,
+                    height: context.responsiveValue(compact: 44.0, standard: 48.0),
                     child: ElevatedButton(
                       onPressed: () {
                         if (rdv.salonSlug != null) {
@@ -82,11 +88,14 @@ class RendezVousDetailPasseView extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Reprendre rendez-vous',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Reprendre rendez-vous',
+                          style: TextStyle(
+                            fontSize: context.fontSize(15),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),

@@ -381,10 +381,11 @@ class _ProfilCapillaireScreenState extends ConsumerState<ProfilCapillaireScreen>
                               .read(profilCapillaireProvider.notifier)
                               .enregistrerProfil(payload);
 
-                          if (pinController.text.trim().length == 4) {
+                          final pin = pinController.text.trim();
+                          if (pin.length >= 4 && pin.length <= 6) {
                             await ref
                                 .read(profilCapillaireProvider.notifier)
-                                .changerPin(pinController.text.trim());
+                                .changerPin(pin);
                           }
 
                           if (context.mounted) {

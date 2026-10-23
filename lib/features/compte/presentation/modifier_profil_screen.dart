@@ -2,21 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/country_phone_picker.dart';
 import '../../../routing/route_names.dart';
 import '../data/compte_repository.dart';
 import 'providers/compte_provider.dart';
-
-class CountryDialCode {
-  final String name;
-  final String code;
-  final String flag;
-
-  const CountryDialCode({
-    required this.name,
-    required this.code,
-    required this.flag,
-  });
-}
 
 class ModifierProfilScreen extends ConsumerStatefulWidget {
   const ModifierProfilScreen({super.key});
@@ -33,36 +23,10 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
   late TextEditingController _emailController;
   late TextEditingController _phoneController;
 
-  CountryDialCode _selectedDialCode = const CountryDialCode(
-    name: 'Sénégal',
-    code: '+221',
-    flag: '🇸🇳',
-  );
+  CountryPhone _selectedDialCode = CountryPhone.allCountries.first;
 
-  final List<CountryDialCode> _dialCodes = const [
-    CountryDialCode(name: 'Sénégal', code: '+221', flag: '🇸🇳'),
-    CountryDialCode(name: 'Mali', code: '+223', flag: '🇲🇱'),
-    CountryDialCode(name: 'Côte d\'Ivoire', code: '+225', flag: '🇨🇮'),
-    CountryDialCode(name: 'Guinée', code: '+224', flag: '🇬🇳'),
-    CountryDialCode(name: 'Burkina Faso', code: '+226', flag: '🇧🇫'),
-    CountryDialCode(name: 'Niger', code: '+227', flag: '🇳🇪'),
-    CountryDialCode(name: 'Togo', code: '+228', flag: '🇹🇬'),
-    CountryDialCode(name: 'Bénin', code: '+229', flag: '🇧🇯'),
-    CountryDialCode(name: 'France', code: '+33', flag: '🇫🇷'),
-  ];
-
-  String? _selectedPays = 'Sénégal';
-  final List<String> _paysList = const [
-    'Sénégal',
-    'Mali',
-    'Côte d\'Ivoire',
-    'Guinée',
-    'Burkina Faso',
-    'Niger',
-    'Togo',
-    'Bénin',
-    'France',
-  ];
+  List<String> get _paysList => CountryPhone.allCountries.map((c) => c.name).toList();
+  String? _selectedPays;
 
   DateTime? _selectedDateNaissance;
   bool _isLoading = false;
@@ -76,16 +40,12 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
     _nomController = TextEditingController(text: profile?.nom ?? 'Diallo');
     _emailController = TextEditingController(text: profile?.email ?? 'aicha.diallo@gmail.com');
 
-    // Détection de l'indicatif initial si disponible dans le numéro
-    String rawPhone = profile?.telephone ?? '+221 77 123 45 67';
-    String phoneOnly = rawPhone;
-    for (final dial in _dialCodes) {
-      if (rawPhone.startsWith(dial.code)) {
-        _selectedDialCode = dial;
-        phoneOnly = rawPhone.replaceFirst(dial.code, '').trim();
-        break;
-      }
-    }
+    // Détection automatique de l'indicatif initial
+    final rawPhone = profile?.telephone ?? '+223 70 12 34 56';
+    final detected = CountryPhone.fromTelephone(rawPhone);
+    _selectedDialCode = detected;
+    _selectedPays = profile?.pays ?? detected.name;
+    final phoneOnly = rawPhone.replaceFirst(detected.dialCode, '').trim();
     _phoneController = TextEditingController(text: phoneOnly);
 
     if (profile?.pays != null && _paysList.contains(profile!.pays)) {
@@ -138,93 +98,14 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
     }
   }
 
-  void _showDialCodePicker() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) {
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          height: 380,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkBorder : Colors.black26,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              Text(
-                'Sélectionnez votre indicatif',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? AppColors.darkTextPrimary : Colors.black,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: ListView.separated(
-                  itemCount: _dialCodes.length,
-                  separatorBuilder: (_, _) => Divider(
-                    height: 1,
-                    color: isDark ? AppColors.darkBorder : const Color(0xFFE5E7EB),
-                  ),
-                  itemBuilder: (ctx, i) {
-                    final item = _dialCodes[i];
-                    final isSelected = item.code == _selectedDialCode.code;
-
-                    return ListTile(
-                      onTap: () {
-                        setState(() {
-                          _selectedDialCode = item;
-                          if (_paysList.contains(item.name)) {
-                            _selectedPays = item.name;
-                          }
-                        });
-                        Navigator.pop(ctx);
-                      },
-                      leading: Text(item.flag, style: const TextStyle(fontSize: 24)),
-                      title: Text(
-                        item.name,
-                        style: TextStyle(
-                          fontSize: 14.5,
-                          fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
-                          color: isSelected
-                              ? AppColors.figmaBrown
-                              : (isDark ? AppColors.darkTextPrimary : Colors.black87),
-                        ),
-                      ),
-                      trailing: Text(
-                        item.code,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: isSelected
-                              ? AppColors.figmaBrown
-                              : (isDark ? AppColors.darkTextSecondary : Colors.black54),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
+  Future<void> _showDialCodePicker() async {
+    final picked = await showCountryPhonePicker(context, current: _selectedDialCode);
+    if (picked != null && mounted) {
+      setState(() {
+        _selectedDialCode = picked;
+        _selectedPays = picked.name;
+      });
+    }
   }
 
   Future<void> _submitForm() async {
@@ -234,7 +115,7 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
       _isLoading = true;
     });
 
-    final fullTelephone = '${_selectedDialCode.code} ${_phoneController.text.trim()}';
+    final fullTelephone = '${_selectedDialCode.dialCode} ${_phoneController.text.trim()}';
     final dateString = _selectedDateNaissance != null
         ? '${_selectedDateNaissance!.year.toString().padLeft(4, '0')}-${_selectedDateNaissance!.month.toString().padLeft(2, '0')}-${_selectedDateNaissance!.day.toString().padLeft(2, '0')}'
         : null;
@@ -475,10 +356,7 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
                       decoration: BoxDecoration(
                         color: isDark ? AppColors.darkInputBg : AppColors.figmaInputBg,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E7EB),
-                          width: 1.0,
-                        ),
+                        border: context.symmetricBorder(),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -489,9 +367,9 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            _selectedDialCode.code,
+                            _selectedDialCode.dialCode,
                             style: TextStyle(
-                              fontSize: 13.5,
+                              fontSize: context.fontSize(13.5),
                               fontWeight: FontWeight.w700,
                               color: isDark ? AppColors.darkTextPrimary : Colors.black87,
                             ),
@@ -515,7 +393,7 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       style: TextStyle(
-                        fontSize: 14,
+                        fontSize: context.fontSize(14),
                         color: isDark ? AppColors.darkTextPrimary : Colors.black87,
                       ),
                       decoration: _buildInputDecoration(
@@ -544,10 +422,7 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.darkInputBg : AppColors.figmaInputBg,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark ? AppColors.darkBorder : const Color(0xFFE5E7EB),
-                    width: 1.0,
-                  ),
+                  border: context.symmetricBorder(),
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
@@ -580,7 +455,7 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
                       if (val != null) {
                         setState(() {
                           _selectedPays = val;
-                          final match = _dialCodes.firstWhere(
+                          final match = CountryPhone.allCountries.firstWhere(
                             (d) => d.name == val,
                             orElse: () => _selectedDialCode,
                           );
@@ -732,19 +607,22 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.check_circle_outline_rounded, size: 19),
-                            SizedBox(width: 8),
-                            Text(
-                              'Enregistrer les modifications',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.check_circle_outline_rounded, size: 19),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Enregistrer les modifications',
+                                style: TextStyle(
+                                  fontSize: context.fontSize(15),
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                 ),
               ),
@@ -789,14 +667,14 @@ class _ModifierProfilScreenState extends ConsumerState<ModifierProfilScreen> {
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E7EB),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           width: 1.0,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E7EB),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           width: 1.0,
         ),
       ),

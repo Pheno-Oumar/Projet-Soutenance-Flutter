@@ -39,8 +39,23 @@ class _DetailsProduitRecommandeScreenState
     }
   }
 
-  AstuceNaturelleModel? _getAstuceAlternative(String etape) {
-    switch (etape.toUpperCase()) {
+  AstuceNaturelleModel? _getAstuceAlternative(ProduitConseilModel p) {
+    if (p.alternativeNaturelleNom != null && p.alternativeNaturelleNom!.trim().isNotEmpty) {
+      return AstuceNaturelleModel(
+        titre: p.alternativeNaturelleNom!.trim(),
+        sousTitre: 'Alternative sur mesure conseillée pour cette étape',
+        type: '0 FCFA • Maison',
+        ingredients: (p.alternativeNaturelleIngredients != null && p.alternativeNaturelleIngredients!.trim().isNotEmpty)
+            ? p.alternativeNaturelleIngredients!.trim()
+            : 'Ingrédients naturels accessibles du quotidien',
+        preparation: (p.alternativeNaturelleRecette != null && p.alternativeNaturelleRecette!.trim().isNotEmpty)
+            ? p.alternativeNaturelleRecette!.trim()
+            : 'Préparer et appliquer avec soin sur vos cheveux selon vos besoins.',
+        benefice: 'Soin maison 100% naturel, économique et sans risque d\'agression chimique.',
+      );
+    }
+
+    switch (p.etapeRoutine.toUpperCase()) {
       case 'LAVAGE':
         return AstuceNaturelleModel.astucesParDefaut[2]; // Eau de riz fortifiante
       case 'SOIN_PROFOND':
@@ -60,7 +75,7 @@ class _DetailsProduitRecommandeScreenState
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final etapeColor = _getEtapeColor(p.etapeRoutine, isDark);
     final score = p.scoreAffinite ?? 95;
-    final alternativeNaturelle = _getAstuceAlternative(p.etapeRoutine);
+    final alternativeNaturelle = _getAstuceAlternative(p);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFFAF7F2),

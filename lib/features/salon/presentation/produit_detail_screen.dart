@@ -2,20 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
+import '../../../routing/route_names.dart';
 import '../../panier/presentation/providers/panier_provider.dart';
+import 'providers/salon_provider.dart';
 
 class ProduitDetailScreen extends ConsumerStatefulWidget {
+  final int? produitId;
+  final String? slugSalon;
+  final String? salonNom;
   final String title;
   final String price;
   final String image;
   final String brand;
+  final String? description;
+  final int? stock;
 
   const ProduitDetailScreen({
     super.key,
+    this.produitId,
+    this.slugSalon,
+    this.salonNom,
     this.title = 'Oreal - Soin Capillaire',
     this.price = '5 000 FCFA',
     this.image = 'assets/images/details_d_un_produit_img_0.png',
     this.brand = 'L\'Oréal Professionnel',
+    this.description,
+    this.stock,
   });
 
   @override
@@ -28,28 +41,67 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
   bool _isFavorite = false;
   bool _isDescriptionExpanded = false;
 
-  late final List<String> _images;
+  late List<String> _images;
 
   @override
   void initState() {
     super.initState();
-    _images = [
-      widget.image,
-      'assets/images/details_d_un_produit_img_1.png',
-      'assets/images/details_d_un_produit_img_2.png',
-    ];
+    _initImages();
+  }
+
+  void _initImages() {
+    if (widget.image.trim().isNotEmpty) {
+      _images = [widget.image.trim()];
+    } else {
+      _images = [
+        'assets/images/details_d_un_produit_img_0.png',
+      ];
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Si slug et produitId sont fournis, interroge le backend pour les données complètes
+    final slug = widget.slugSalon;
+    final id = widget.produitId;
+
+    String displayTitle = widget.title;
+    String displayPrice = widget.price;
+    String displayBrand = widget.brand;
+    String displayDesc = widget.description != null && widget.description!.isNotEmpty
+        ? widget.description!
+        : 'Un soin nourrissant qui hydrate, fortifie et redonne douceur et éclat aux cheveux. Idéal pour les cheveux secs et fragilisés. Sa formule riche en actifs réparateurs pénètre la fibre capillaire pour revitaliser la chevelure en profondeur.';
+    int displayStock = widget.stock ?? 10;
+    bool isRupture = displayStock <= 0;
+
+    if (slug != null && slug.isNotEmpty && id != null) {
+      final detailAsync = ref.watch(salonProduitDetailProvider((slug: slug, produitId: id)));
+      detailAsync.whenData((prod) {
+        displayTitle = prod.nom;
+        displayPrice =
+            '${prod.prixVente.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} FCFA';
+        if (prod.categorieNom != null) displayBrand = prod.categorieNom!;
+        if (prod.description != null && prod.description!.isNotEmpty) {
+          displayDesc = prod.description!;
+        }
+        displayStock = prod.quantiteEnStock;
+        isRupture = prod.isEnRupture;
+
+        if (prod.imagesUrls.isNotEmpty && _images.length <= 1) {
+          _images = prod.imagesUrls;
+        } else if (prod.imageUrl != null && _images.length <= 1) {
+          _images = [prod.imageUrl!];
+        }
+      });
+    }
+
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
       body: Stack(
         children: [
-          // ==============================================================
-          // CONTENU DÉFILANT (Hero + Miniatures + Infos remodelées + Description)
-          // ==============================================================
+          // CONTENU DÉFILANT (Hero + Miniatures + Infos + Description)
           SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             padding: const EdgeInsets.only(bottom: 95),
@@ -61,79 +113,74 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
 
                 const SizedBox(height: 14),
 
-                // 2. Ligne de miniatures & indicateur 1/3
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      // Miniatures cliquables
-                      for (int i = 0; i < 3 && i < _images.length; i++)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _selectedImageIndex = i;
-                              });
-                            },
-                            child: Container(
-                              width: 58,
-                              height: 58,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _selectedImageIndex == i
-                                      ? AppColors.figmaActiveGold
-                                      : (isDark ? AppColors.darkBorder : const Color(0xFFE0E4EB)),
-                                  width: _selectedImageIndex == i ? 2.0 : 1.0,
-                                ),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.asset(
-                                  _images[i],
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Container(
-                                    color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF5EFE6),
+                // 2. Ligne de miniatures & indicateur
+                if (_images.length > 1)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        for (int i = 0; i < 4 && i < _images.length; i++)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedImageIndex = i;
+                                });
+                              },
+                              child: Container(
+                                width: context.responsiveValue<double>(
+                                    smallPhone: 50, standard: 58, tablet: 72),
+                                height: context.responsiveValue<double>(
+                                    smallPhone: 50, standard: 58, tablet: 72),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _selectedImageIndex == i
+                                        ? AppColors.figmaActiveGold
+                                        : (isDark
+                                            ? AppColors.darkBorder
+                                            : const Color(0xFFE0E4EB)),
+                                    width: _selectedImageIndex == i ? 2.0 : 1.0,
                                   ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: _buildThumbImage(_images[i], isDark),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-
-                      const Spacer(),
-
-                      // Indicateur de page (ex. 1/3)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkSurface : AppColors.figmaInputBg,
-                          borderRadius: BorderRadius.circular(10),
-                          border: isDark ? Border.all(color: AppColors.darkBorder) : null,
-                        ),
-                        child: Text(
-                          '${_selectedImageIndex + 1}/${_images.length}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? AppColors.darkTextSecondary : Colors.black54,
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkSurface : AppColors.figmaInputBg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: context.symmetricBorder(),
+                          ),
+                          child: Text(
+                            '${_selectedImageIndex + 1}/${_images.length}',
+                            style: TextStyle(
+                              fontSize: context.fontSize(12),
+                              fontWeight: FontWeight.w700,
+                              color: context.adaptiveSubtextColor(),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
                 const SizedBox(height: 18),
 
-                // 3. Section Titre & Description Remodelée (Comme demandé par l'utilisateur)
+                // 3. Section Titre & Description Remodelée
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Badge Marque & Catégorie
+                      // Badge Marque & Catégorie + Stock
                       Row(
                         children: [
                           Container(
@@ -145,11 +192,13 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              widget.brand,
+                              displayBrand,
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                                color: isDark
+                                    ? AppColors.figmaActiveGold
+                                    : AppColors.figmaBrown,
                               ),
                             ),
                           ),
@@ -157,15 +206,25 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: isDark ? const Color(0xFF1B3820) : const Color(0xFFE8F5E9),
+                              color: isRupture
+                                  ? (isDark
+                                      ? const Color(0xFF3E1E1E)
+                                      : const Color(0xFFFFEBEE))
+                                  : (isDark
+                                      ? const Color(0xFF1B3820)
+                                      : const Color(0xFFE8F5E9)),
                               borderRadius: BorderRadius.circular(6),
                             ),
-                            child: const Text(
-                              '● En stock',
+                            child: Text(
+                              isRupture
+                                  ? '● Rupture de stock'
+                                  : '● En stock ($displayStock)',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF4CAF50),
+                                color: isRupture
+                                    ? const Color(0xFFE53935)
+                                    : const Color(0xFF4CAF50),
                               ),
                             ),
                           ),
@@ -175,22 +234,28 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
 
                       // Nom du produit
                       Text(
-                        widget.title,
+                        displayTitle,
                         style: TextStyle(
-                          fontSize: 22,
+                          fontSize: context.fontSize(22),
                           fontWeight: FontWeight.w800,
-                          color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                          color: context.adaptiveTextColor(),
                         ),
                       ),
                       const SizedBox(height: 6),
 
                       // Prix
-                      Text(
-                        widget.price,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          displayPrice,
+                          style: TextStyle(
+                            fontSize: context.fontSize(20),
+                            fontWeight: FontWeight.w900,
+                            color: isDark
+                                ? AppColors.figmaActiveGold
+                                : AppColors.figmaBrown,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -208,17 +273,17 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                           Text(
                             '5',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: context.fontSize(13),
                               fontWeight: FontWeight.w800,
-                              color: isDark ? AppColors.darkTextPrimary : Colors.black87,
+                              color: context.adaptiveTextColor(),
                             ),
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '(128 avis vérifiés)',
+                            '(Avis vérifiés)',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? AppColors.darkTextSecondary : Colors.black45,
+                              fontSize: context.fontSize(12),
+                              color: context.adaptiveSubtextColor(),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -228,15 +293,16 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
 
                       // Description remodelée avec "Voir plus"
                       Text(
-                        'Un soin nourrissant qui hydrate, fortifie et redonne douceur et éclat aux cheveux. Idéal pour les cheveux secs et fragilisés. Sa formule riche en actifs réparateurs pénètre la fibre capillaire pour revitaliser la chevelure en profondeur.',
+                        displayDesc,
                         style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? AppColors.darkTextSecondary : const Color(0xFF4A4A4A),
+                          fontSize: context.fontSize(13),
+                          color: context.adaptiveSubtextColor(),
                           height: 1.45,
                           fontWeight: FontWeight.w400,
                         ),
                         maxLines: _isDescriptionExpanded ? null : 3,
-                        overflow: _isDescriptionExpanded ? null : TextOverflow.ellipsis,
+                        overflow:
+                            _isDescriptionExpanded ? null : TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       InkWell(
@@ -245,9 +311,9 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                             _isDescriptionExpanded = !_isDescriptionExpanded;
                           });
                         },
-                        child: const Text(
-                          'Voir plus',
-                          style: TextStyle(
+                        child: Text(
+                          _isDescriptionExpanded ? 'Voir moins' : 'Voir plus',
+                          style: const TextStyle(
                             color: AppColors.figmaActiveGold,
                             fontSize: 12.5,
                             fontWeight: FontWeight.w700,
@@ -263,9 +329,7 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
             ),
           ),
 
-          // ==============================================================
-          // 4. BARRE D'ACTION FIXE AU BAS (Sélecteur Quantité + Ajouter au panier)
-          // ==============================================================
+          // BARRE D'ACTION FIXE AU BAS (Sélecteur Quantité + Ajouter au panier)
           Positioned(
             left: 0,
             right: 0,
@@ -274,7 +338,12 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
-                border: isDark ? const Border(top: BorderSide(color: AppColors.darkBorder)) : null,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
+                    width: 1.0,
+                  ),
+                ),
                 boxShadow: isDark
                     ? null
                     : [
@@ -289,59 +358,73 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                 top: false,
                 child: Row(
                   children: [
-                    // Sélecteur de quantité [-]  1  [+]
+                    // Sélecteur de quantité
                     Container(
                       height: 50,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF3F5F7),
+                        color: isDark
+                            ? AppColors.darkSurfaceVariant
+                            : AppColors.figmaInputBg,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: isDark ? AppColors.darkBorder : const Color(0xFFE2E6EB),
-                        ),
+                        border: context.symmetricBorder(),
                       ),
                       child: Row(
                         children: [
                           GestureDetector(
-                            onTap: () {
-                              if (_quantity > 1) {
-                                setState(() {
-                                  _quantity--;
-                                });
-                              }
-                            },
+                            onTap: isRupture
+                                ? null
+                                : () {
+                                    if (_quantity > 1) {
+                                      setState(() {
+                                        _quantity--;
+                                      });
+                                    }
+                                  },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
                               child: Icon(
                                 Icons.remove_rounded,
                                 size: 18,
-                                color: isDark ? AppColors.darkTextPrimary : Colors.black87,
+                                color: _quantity > 1 && !isRupture
+                                    ? (isDark
+                                        ? AppColors.darkTextPrimary
+                                        : Colors.black87)
+                                    : (isDark
+                                        ? Colors.white24
+                                        : Colors.black26),
                               ),
                             ),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Text(
-                              '$_quantity',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: isDark ? AppColors.darkTextPrimary : Colors.black,
-                              ),
+                          Text(
+                            '$_quantity',
+                            style: TextStyle(
+                              fontSize: context.fontSize(15),
+                              fontWeight: FontWeight.w800,
+                              color: context.adaptiveTextColor(),
                             ),
                           ),
                           GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _quantity++;
-                              });
-                            },
+                            onTap: isRupture
+                                ? null
+                                : () {
+                                    if (_quantity < displayStock) {
+                                      setState(() {
+                                        _quantity++;
+                                      });
+                                    }
+                                  },
                             child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
                               child: Icon(
                                 Icons.add_rounded,
                                 size: 18,
-                                color: isDark ? AppColors.darkTextPrimary : Colors.black87,
+                                color: !isRupture && _quantity < displayStock
+                                    ? (isDark
+                                        ? AppColors.darkTextPrimary
+                                        : Colors.black87)
+                                    : (isDark
+                                        ? Colors.white24
+                                        : Colors.black26),
                               ),
                             ),
                           ),
@@ -356,19 +439,57 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                       child: SizedBox(
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: () {
-                            ref.read(localPanierCountProvider.notifier).state += _quantity;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('$_quantity x ${widget.title} ajouté au panier !'),
-                                duration: const Duration(seconds: 2),
-                                backgroundColor: AppColors.figmaBrown,
-                              ),
-                            );
-                          },
+                          onPressed: isRupture
+                              ? null
+                              : () {
+                                  final cleanPrice = displayPrice
+                                      .replaceAll(RegExp(r'[^0-9]'), '');
+                                  final prixNumerique =
+                                      double.tryParse(cleanPrice) ?? 5000.0;
+                                  final effectiveSlug = (widget.slugSalon != null &&
+                                          widget.slugSalon!.isNotEmpty)
+                                      ? widget.slugSalon!
+                                      : 'beauty-by-dika';
+                                  final effectiveSalonNom = (widget.salonNom != null &&
+                                          widget.salonNom!.isNotEmpty)
+                                      ? widget.salonNom!
+                                      : 'Beauty By Dika';
+                                  final effectiveProduitId =
+                                      widget.produitId ?? 1;
+
+                                  ref.read(panierStateProvider.notifier).ajouterArticle(
+                                    slugSalon: effectiveSlug,
+                                    salonNom: effectiveSalonNom,
+                                    produitId: effectiveProduitId,
+                                    produitNom: displayTitle,
+                                    prixUnitaire: prixNumerique,
+                                    quantite: _quantity,
+                                    imageUrl: _images.isNotEmpty
+                                        ? _images[_selectedImageIndex]
+                                        : widget.image,
+                                  );
+
+                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          '$_quantity x $displayTitle ajouté au panier ($effectiveSalonNom) !'),
+                                      duration: const Duration(seconds: 2),
+                                      backgroundColor: AppColors.figmaBrown,
+                                      action: SnackBarAction(
+                                        label: 'Voir',
+                                        textColor: AppColors.figmaActiveGold,
+                                        onPressed: () => context.push(RouteNames.panier),
+                                      ),
+                                    ),
+                                  );
+                                },
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                            backgroundColor: isDark
+                                ? AppColors.figmaActiveGold
+                                : AppColors.figmaBrown,
                             foregroundColor: Colors.white,
+                            disabledBackgroundColor: Colors.grey.shade400,
                             elevation: 0,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -376,14 +497,19 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
-                            children: const [
-                              Icon(Icons.shopping_cart_outlined, size: 18),
-                              SizedBox(width: 8),
-                              Text(
-                                'Ajouter au panier',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
+                            children: [
+                              const Icon(Icons.shopping_cart_outlined, size: 18),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    isRupture ? 'Article épuisé' : 'Ajouter au panier',
+                                    style: TextStyle(
+                                      fontSize: context.fontSize(14),
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ],
@@ -402,25 +528,32 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
   }
 
   Widget _buildHeroImage(bool isDark) {
+    final heroHeight = context.heightPercent(0.38, min: 240.0, max: 420.0);
+    final currentImg = _images.isNotEmpty && _selectedImageIndex < _images.length
+        ? _images[_selectedImageIndex]
+        : widget.image;
+    final isNetwork = currentImg.startsWith('http');
+
     return SizedBox(
-      height: 330,
+      height: heroHeight,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            _images[_selectedImageIndex],
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
-              color: const Color(0xFF382319),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.shopping_bag_outlined,
-                color: Colors.white38,
-                size: 54,
-              ),
+          if (isNetwork)
+            Image.network(
+              currentImg,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _buildHeroPlaceholder(),
+            )
+          else
+            Image.asset(
+              currentImg.isNotEmpty
+                  ? currentImg
+                  : 'assets/images/details_d_un_produit_img_0.png',
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => _buildHeroPlaceholder(),
             ),
-          ),
 
           // Dégradé léger en haut pour les boutons
           Container(
@@ -506,6 +639,37 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildThumbImage(String path, bool isDark) {
+    if (path.startsWith('http')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Container(
+          color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF5EFE6),
+        ),
+      );
+    }
+    return Image.asset(
+      path,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => Container(
+        color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF5EFE6),
+      ),
+    );
+  }
+
+  Widget _buildHeroPlaceholder() {
+    return Container(
+      color: const Color(0xFF382319),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.shopping_bag_outlined,
+        color: Colors.white38,
+        size: 54,
       ),
     );
   }

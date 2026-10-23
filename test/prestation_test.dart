@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_hair_style/features/prestations/data/models/prestation_model.dart';
-import 'package:mobile_hair_style/features/prestations/data/prestation_mock_data.dart';
 import 'package:mobile_hair_style/features/prestations/presentation/providers/prestation_provider.dart';
 
 void main() {
@@ -92,26 +91,91 @@ void main() {
   });
 
   group('MesPrestationsState Filtering Tests', () {
+    final List<PrestationModel> samplePrestations = [
+      const PrestationModel(
+        id: 1,
+        salonSlug: 'salon-beauty',
+        salonNom: 'Salon Beauty',
+        salonAdresse: 'Dakar Plateau',
+        salonLogo: 'assets/images/logo.png',
+        salonCover: 'assets/images/cover.jpg',
+        dateHeureDebut: '15/04/2025 • 10:00',
+        statut: 'TERMINEE',
+        montantTotal: 10000,
+        lignes: [
+          LignePrestationModel(
+            id: 1,
+            varianteServiceId: 101,
+            nomService: 'Soin',
+            nomVariante: 'Standard',
+            prix: 10000,
+          ),
+        ],
+      ),
+      const PrestationModel(
+        id: 2,
+        salonSlug: 'salon-beauty',
+        salonNom: 'Salon Beauty',
+        salonAdresse: 'Dakar Plateau',
+        salonLogo: 'assets/images/logo.png',
+        salonCover: 'assets/images/cover.jpg',
+        dateHeureDebut: '18/03/2025 • 11:30',
+        statut: 'ANNULEE',
+        montantTotal: 8000,
+        lignes: [
+          LignePrestationModel(
+            id: 2,
+            varianteServiceId: 102,
+            nomService: 'Coupe',
+            nomVariante: 'Simple',
+            prix: 8000,
+          ),
+        ],
+      ),
+      const PrestationModel(
+        id: 3,
+        salonSlug: 'hair-co',
+        salonNom: 'Hair & Co',
+        salonAdresse: 'Mermoz',
+        salonLogo: 'assets/images/logo.png',
+        salonCover: 'assets/images/cover.jpg',
+        dateHeureDebut: '20/02/2025 • 14:00',
+        statut: 'TERMINEE',
+        montantTotal: 20000,
+        lignes: [
+          LignePrestationModel(
+            id: 3,
+            varianteServiceId: 103,
+            nomService: 'Tresses',
+            nomVariante: 'Box braids',
+            prix: 20000,
+          ),
+        ],
+      ),
+    ];
+
     test('Filters by status tab correctly', () {
       final state = MesPrestationsState(
-        allPrestations: PrestationMockData.mockPrestations,
+        allPrestations: samplePrestations,
       );
 
       // TOUT
-      expect(state.prestationsFiltrees.length, PrestationMockData.mockPrestations.length);
+      expect(state.prestationsFiltrees.length, samplePrestations.length);
 
       // TERMINEE
       final termineeState = state.copyWith(selectedStatutTab: 'TERMINEE');
       expect(termineeState.prestationsFiltrees.every((p) => p.isTerminee), isTrue);
+      expect(termineeState.prestationsFiltrees.length, 2);
 
       // ANNULEE
       final annuleeState = state.copyWith(selectedStatutTab: 'ANNULEE');
       expect(annuleeState.prestationsFiltrees.every((p) => p.isAnnulee), isTrue);
+      expect(annuleeState.prestationsFiltrees.length, 1);
     });
 
     test('Filters by selected salon correctly', () {
       final state = MesPrestationsState(
-        allPrestations: PrestationMockData.mockPrestations,
+        allPrestations: samplePrestations,
         selectedSalonSlug: 'salon-beauty',
       );
 
@@ -121,7 +185,7 @@ void main() {
 
     test('Extracts unique available salons dynamically', () {
       final state = MesPrestationsState(
-        allPrestations: PrestationMockData.mockPrestations,
+        allPrestations: samplePrestations,
       );
 
       final salons = state.salonsDisponibles;

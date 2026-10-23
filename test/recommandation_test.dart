@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_hair_style/features/recommandations/data/models/astuce_naturelle_model.dart';
 import 'package:mobile_hair_style/features/recommandations/data/models/produit_conseil_model.dart';
 import 'package:mobile_hair_style/features/recommandations/data/recommandation_mock_data.dart';
+import 'package:mobile_hair_style/features/recommandations/presentation/details_produit_recommande_screen.dart';
 
 void main() {
   group('Recommandations & Profil Capillaire Tests', () {
@@ -58,6 +60,50 @@ void main() {
       expect(astuces.isNotEmpty, isTrue);
       expect(astuces.first.type, 'Petit Budget');
       expect(astuces.first.ingredients.isNotEmpty, isTrue);
+    });
+
+    test('ProduitConseilModel supporte alternativeNaturelle personnalisée', () {
+      final json = {
+        'id': 102,
+        'nom': 'Masque Réparateur Karité',
+        'marque': 'Mon Salon',
+        'etapeRoutine': 'SOIN_PROFOND',
+        'alternativeNaturelleNom': 'Masque Avocat & Banane',
+        'alternativeNaturelleIngredients': '1 demi-avocat + 1 banane + miel',
+        'alternativeNaturelleRecette': 'Écraser et laisser poser 20 min.',
+      };
+
+      final produit = ProduitConseilModel.fromJson(json);
+      expect(produit.alternativeNaturelleNom, 'Masque Avocat & Banane');
+      expect(produit.alternativeNaturelleIngredients, '1 demi-avocat + 1 banane + miel');
+      expect(produit.alternativeNaturelleRecette, 'Écraser et laisser poser 20 min.');
+      expect(produit.toJson()['alternativeNaturelleNom'], 'Masque Avocat & Banane');
+    });
+
+    testWidgets('DetailsProduitRecommandeScreen affiche l''alternative naturelle personnalisée sur l''écran', (tester) async {
+      final produit = ProduitConseilModel(
+        id: 1,
+        nom: 'Masque Réparateur Karité & Argan',
+        marque: 'Kady Care',
+        description: 'Soin profond ultra-nourrissant.',
+        modeUtilisation: 'Appliquer 20 minutes puis rincer.',
+        etapeRoutine: 'SOIN_PROFOND',
+        alternativeNaturelleNom: 'Masque Avocat, Banane & Miel',
+        alternativeNaturelleIngredients: '1 demi-avocat + 1 banane + miel pur',
+        alternativeNaturelleRecette: 'Écraser très finement et poser 20 min.',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: DetailsProduitRecommandeScreen(produit: produit),
+        ),
+      );
+
+      expect(find.text('KADY CARE'), findsOneWidget);
+      expect(find.text('Masque Réparateur Karité & Argan'), findsOneWidget);
+      expect(find.text('Masque Avocat, Banane & Miel'), findsOneWidget);
+      expect(find.textContaining('1 demi-avocat'), findsOneWidget);
+      expect(find.textContaining('Écraser très finement'), findsOneWidget);
     });
   });
 }

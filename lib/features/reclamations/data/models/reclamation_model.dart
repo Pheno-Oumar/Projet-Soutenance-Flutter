@@ -112,22 +112,34 @@ class ReclamationModel {
     );
   }
 
+  String get dateCreationFormatee {
+    if (dateCreation.isEmpty) return '';
+    if (dateCreation.contains('T')) {
+      try {
+        final dt = DateTime.parse(dateCreation);
+        return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+      } catch (_) {}
+    }
+    return dateCreation;
+  }
+
   factory ReclamationModel.fromJson(Map<String, dynamic> json) {
     return ReclamationModel(
-      id: json['id'] as int? ?? 0,
-      codeReference: json['codeReference'] as String? ?? '',
-      salonNom: json['salonNom'] as String? ?? 'Salon Beauty',
-      salonSlug: json['salonSlug'] as String? ?? 'salon-beauty',
-      salonAdresse: json['salonAdresse'] as String? ?? 'Dakar, Almadies',
+      id: (json['id'] as num?)?.toInt() ?? 0,
+      codeReference: json['codeReference'] as String? ??
+          (json['id'] != null ? '#REC-2026-${json['id'].toString().padLeft(4, '0')}' : ''),
+      salonNom: json['salonNom'] as String? ?? 'Salon',
+      salonSlug: json['salonSlug'] as String? ?? '',
+      salonAdresse: json['salonAdresse'] as String? ?? 'Dakar',
       salonLogo: json['salonLogo'] as String? ?? 'assets/images/rdv_tous_0.png',
       type: json['type'] as String? ?? 'SERVICE',
       objet: json['objet'] as String? ?? '',
       description: json['description'] as String? ?? '',
       statut: json['statut'] as String? ?? 'EN_ATTENTE',
       reponseTraitement: json['reponseTraitement'] as String?,
-      reponseAuteur: json['reponseAuteur'] as String?,
+      reponseAuteur: json['traiteParNomComplet'] as String? ?? json['reponseAuteur'] as String?,
       reponseAuteurInitiales: json['reponseAuteurInitiales'] as String?,
-      dateCreation: json['dateCreation'] as String? ?? '12/04/2025',
+      dateCreation: json['dateCreation'] as String? ?? '',
       dateTraitement: json['dateTraitement'] as String?,
     );
   }

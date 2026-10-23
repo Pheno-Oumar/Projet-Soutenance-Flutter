@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
+import 'models/kadys_commentaire_model.dart';
 import 'models/kadys_model.dart';
 
 final kadysRepositoryProvider = Provider<KadysRepository>((ref) {
@@ -46,4 +47,36 @@ class KadysRepository {
   Future<void> enregistrerVue(int id) async {
     await _apiClient.post(ApiEndpoints.kadysVue(id));
   }
+
+  Future<List<KadysCommentaireModel>> getCommentaires(int realisationId) async {
+    final response = await _apiClient.get(ApiEndpoints.kadysCommentaires(realisationId));
+    final rawData = response.data;
+    if (rawData is List) {
+      return rawData
+          .map((item) => KadysCommentaireModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+    if (rawData is Map<String, dynamic> && rawData['data'] is List) {
+      return (rawData['data'] as List)
+          .map((item) => KadysCommentaireModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+    }
+    return [];
+  }
+
+  Future<KadysCommentaireModel> ajouterCommentaire(int realisationId, String contenu) async {
+    final response = await _apiClient.post(
+      ApiEndpoints.kadysCommentaires(realisationId),
+      data: {'contenu': contenu},
+    );
+    final rawData = response.data;
+    if (rawData is Map<String, dynamic>) {
+      if (rawData.containsKey('data') && rawData['data'] is Map<String, dynamic>) {
+        return KadysCommentaireModel.fromJson(rawData['data'] as Map<String, dynamic>);
+      }
+      return KadysCommentaireModel.fromJson(rawData);
+    }
+    throw Exception('Erreur lors de l\'ajout du commentaire');
+  }
 }
+

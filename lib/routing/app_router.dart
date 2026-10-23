@@ -11,6 +11,7 @@ import '../features/compte/presentation/mes_favoris_screen.dart';
 import '../features/commandes/presentation/mes_commandes_screen.dart';
 import '../features/commandes/presentation/details/commande_detail_dispatcher_screen.dart';
 import '../features/home/presentation/home_screen.dart';
+import '../features/onboarding/presentation/onboarding_screen.dart';
 import '../features/home/presentation/recherche_screen.dart';
 import '../features/kadys/presentation/kadys_feed_screen.dart';
 import '../features/notification/presentation/notifications_screen.dart';
@@ -24,6 +25,7 @@ import '../features/prestations/presentation/mes_prestations_screen.dart';
 import '../features/prestations/presentation/details/prestation_detail_screen.dart';
 import '../features/prestations/data/models/prestation_model.dart';
 import '../features/rendezvous/presentation/mes_rendezvous_screen.dart';
+import '../features/rendezvous/presentation/panier_rendezvous_screen.dart';
 import '../features/rendezvous/presentation/details/rendezvous_detail_screen.dart';
 import '../features/rendezvous/data/models/rendezvous_model.dart';
 import '../features/salon/presentation/categorie_produits_screen.dart';
@@ -53,8 +55,14 @@ final _compteNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'compte');
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: RouteNames.home,
+    initialLocation: RouteNames.onboarding,
     routes: [
+      GoRoute(
+        path: RouteNames.onboarding,
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const OnboardingScreen(),
+      ),
+
       // Shell persistant avec BottomNavigationBar à 4 onglets
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -123,6 +131,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const PanierScreen(),
       ),
       GoRoute(
+        path: RouteNames.panierRendezVous,
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) => const PanierRendezVousScreen(),
+      ),
+      GoRoute(
         path: RouteNames.mesRendezVous,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) => const MesRendezVousScreen(),
@@ -147,7 +160,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
           final query = state.uri.queryParameters['q'];
-          return RechercheScreen(initialQuery: query);
+          final distStr = state.uri.queryParameters['dist'];
+          final dist = distStr != null ? int.tryParse(distStr) : null;
+          return RechercheScreen(initialQuery: query, initialDistance: dist);
         },
       ),
 
@@ -177,7 +192,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final salonName = state.uri.queryParameters['salon'] ?? 'Salon Beauty';
           final initials = state.uri.queryParameters['initials'] ?? 'SB';
-          return StoryScreen(salonName: salonName, initials: initials);
+          final slug = state.uri.queryParameters['slug'] ?? '';
+          return StoryScreen(salonName: salonName, initials: initials, slug: slug);
         },
       ),
 
@@ -189,7 +205,16 @@ final routerProvider = Provider<GoRouter>((ref) {
           final title = state.uri.queryParameters['title'] ?? 'Tresses collées';
           final desc = state.uri.queryParameters['desc'] ??
               'La tresse africaine est une coiffure traditionnelle où les cheveux sont tressés serrés et près du cuir chevelu en intégrant progressivement de nouvelles mèches.';
-          return ServiceVariantesScreen(serviceTitle: title, serviceDescription: desc);
+          final salon = state.uri.queryParameters['salon'] ?? 'Beauty By Dika';
+          final slug = state.uri.queryParameters['slug'] ?? 'beauty-by-dika';
+          final serviceId = int.tryParse(state.uri.queryParameters['serviceId'] ?? '');
+          return ServiceVariantesScreen(
+            serviceTitle: title,
+            serviceDescription: desc,
+            salonName: salon,
+            slugSalon: slug,
+            serviceId: serviceId,
+          );
         },
       ),
 
@@ -202,11 +227,21 @@ final routerProvider = Provider<GoRouter>((ref) {
           final price = state.uri.queryParameters['price'] ?? '5 000 FCFA';
           final image = state.uri.queryParameters['image'] ?? 'assets/images/details_d_une_variante_img_0.png';
           final salon = state.uri.queryParameters['salon'] ?? 'Beauty By Dika';
+          final slug = state.uri.queryParameters['slug'];
+          final varianteId = int.tryParse(state.uri.queryParameters['varianteId'] ?? '');
+          final serviceId = int.tryParse(state.uri.queryParameters['serviceId'] ?? '');
+          final duree = int.tryParse(state.uri.queryParameters['duree'] ?? '');
+          final description = state.uri.queryParameters['description'];
           return VarianteDetailScreen(
             title: title,
             price: price,
             image: image,
             salonName: salon,
+            slugSalon: slug,
+            varianteId: varianteId,
+            serviceId: serviceId,
+            dureeMinutes: duree,
+            description: description,
           );
         },
       ),
@@ -216,10 +251,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RouteNames.categorieProduits,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
+          final idStr = state.uri.queryParameters['id'];
+          final id = idStr != null ? int.tryParse(idStr) : null;
+          final slug = state.uri.queryParameters['slug'];
+          final salon = state.uri.queryParameters['salon'];
           final title = state.uri.queryParameters['title'] ?? 'Lavage';
           final desc = state.uri.queryParameters['desc'] ??
               'Le lavage consiste à nettoyer le cuir chevelu en éliminant les impuretés, l\'excès de sébum, la transpiration et les résidus de produits de coiffage.';
-          return CategorieProduitsScreen(categoryTitle: title, categoryDescription: desc);
+          return CategorieProduitsScreen(
+            categorieId: id,
+            slugSalon: slug,
+            salonNom: salon,
+            categoryTitle: title,
+            categoryDescription: desc,
+          );
         },
       ),
 
@@ -228,15 +273,56 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: RouteNames.produitDetail,
         parentNavigatorKey: _rootNavigatorKey,
         builder: (context, state) {
+          final idStr = state.uri.queryParameters['id'];
+          final id = idStr != null ? int.tryParse(idStr) : null;
+          final slug = state.uri.queryParameters['slug'];
+          final salon = state.uri.queryParameters['salon'];
           final title = state.uri.queryParameters['title'] ?? 'Oreal - Soin Capillaire';
           final price = state.uri.queryParameters['price'] ?? '5 000 FCFA';
           final image = state.uri.queryParameters['image'] ?? 'assets/images/details_d_un_produit_img_0.png';
           final brand = state.uri.queryParameters['brand'] ?? 'L\'Oréal Professionnel';
+          final desc = state.uri.queryParameters['desc'];
+          final stockStr = state.uri.queryParameters['stock'];
+          final stock = stockStr != null ? int.tryParse(stockStr) : null;
+
           return ProduitDetailScreen(
+            produitId: id,
+            slugSalon: slug,
+            salonNom: salon,
             title: title,
             price: price,
             image: image,
             brand: brand,
+            description: desc,
+            stock: stock,
+          );
+        },
+      ),
+
+      // Route alias directe : Détail / Variantes du service d'un salon
+      GoRoute(
+        path: '/salons/:slug/services/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final slug = state.pathParameters['slug'] ?? '';
+          final serviceId = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return ServiceVariantesScreen(
+            slugSalon: slug,
+            serviceId: serviceId,
+          );
+        },
+      ),
+
+      // Route alias directe : Détail du produit d'un salon
+      GoRoute(
+        path: '/salons/:slug/produits/:id',
+        parentNavigatorKey: _rootNavigatorKey,
+        builder: (context, state) {
+          final slug = state.pathParameters['slug'] ?? '';
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return ProduitDetailScreen(
+            produitId: id,
+            slugSalon: slug,
           );
         },
       ),

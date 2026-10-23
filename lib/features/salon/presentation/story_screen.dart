@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import 'providers/salon_provider.dart';
+import '../data/models/realisation_salon_model.dart';
 
 class StoryItem {
   final String imagePath;
@@ -14,51 +17,31 @@ class StoryItem {
   });
 }
 
-class StoryScreen extends StatefulWidget {
+class StoryScreen extends ConsumerStatefulWidget {
   final String salonName;
   final String initials;
+  final String slug;
 
   const StoryScreen({
     super.key,
     this.salonName = 'Salon Beauty',
     this.initials = 'SB',
+    this.slug = '',
   });
 
   @override
-  State<StoryScreen> createState() => _StoryScreenState();
+  ConsumerState<StoryScreen> createState() => _StoryScreenState();
 }
 
-class _StoryScreenState extends State<StoryScreen>
+class _StoryScreenState extends ConsumerState<StoryScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _animController;
   int _currentIndex = 0;
-  bool _isLiked = false;
-  final TextEditingController _replyController = TextEditingController();
-
-  // Liste des stories du salon avec multiples images (comme sur Instagram/WhatsApp)
-  late final List<StoryItem> _stories;
+  int _totalStories = 0;
 
   @override
   void initState() {
     super.initState();
-    _stories = [
-      const StoryItem(
-        imagePath: 'assets/images/story_img_0.jpg',
-        caption: 'Tresses spirales artistiques ✨ Création exclusive de la semaine',
-        timestamp: 'Il y a 2h',
-      ),
-      const StoryItem(
-        imagePath: 'assets/images/story_img_1.png',
-        caption: 'Box Braids & Perles dorées 🤎 Réalisé ce matin au salon',
-        timestamp: 'Il y a 1h',
-      ),
-      const StoryItem(
-        imagePath: 'assets/images/story_img_2.png',
-        caption: 'Soin kératine intense & Brillance éclatante 💆‍♀️✨',
-        timestamp: 'Il y a 30m',
-      ),
-    ];
-
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 5),
@@ -76,12 +59,11 @@ class _StoryScreenState extends State<StoryScreen>
   @override
   void dispose() {
     _animController.dispose();
-    _replyController.dispose();
     super.dispose();
   }
 
   void _nextStory() {
-    if (_currentIndex < _stories.length - 1) {
+    if (_totalStories > 0 && _currentIndex < _totalStories - 1) {
       setState(() {
         _currentIndex++;
       });
@@ -117,9 +99,271 @@ class _StoryScreenState extends State<StoryScreen>
     }
   }
 
+  Widget _buildStoryImage(String path) {
+    final cleanPath = path.replaceAll('http://localhost:8080', 'http://10.0.2.2:8080');
+    Widget placeholder() => Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF2E1C15),
+                Color(0xFF120E0C),
+              ],
+            ),
+          ),
+          alignment: Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withValues(alpha: 0.1),
+                ),
+                child: const Icon(
+                  Icons.auto_stories_rounded,
+                  color: AppColors.figmaActiveGold,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                widget.salonName,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        );
+
+    if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
+      return Image.network(
+        cleanPath,
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, _, _) => placeholder(),
+      );
+    }
+    return placeholder();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final currentStory = _stories[_currentIndex];
+    final salonStoriesAsync = ref.watch(salonStoriesProvider(widget.slug));
+    final salonDetailAsync = ref.watch(salonDetailProvider(widget.slug));
+    final logoUrl = salonDetailAsync.valueOrNull?.logoUrl;
+
+    if (salonStoriesAsync.isLoading) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(
+                color: AppColors.figmaActiveGold,
+                strokeWidth: 2.5,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Chargement des stories de ${widget.salonName}...',
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (salonStoriesAsync.hasError && widget.slug.isNotEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline_rounded, color: Colors.redAccent, size: 48),
+                const SizedBox(height: 14),
+                const Text(
+                  'Impossible de charger les stories',
+                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  salonStoriesAsync.error.toString(),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white60, fontSize: 12),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => ref.invalidate(salonStoriesProvider(widget.slug)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.figmaActiveGold,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Réessayer'),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: () => context.pop(),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                        side: const BorderSide(color: Colors.white30),
+                      ),
+                      child: const Text('Retour'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final realStories = salonStoriesAsync.valueOrNull ?? [];
+    final realisationsAsync = ref.watch(salonRealisationsProvider(widget.slug));
+    final dynamicReels = realisationsAsync.valueOrNull ?? [];
+    final fallbackTransversales = ref.watch(realisationsTransversalesProvider).valueOrNull ?? [];
+
+    final List<StoryItem> stories;
+    if (realStories.isNotEmpty) {
+      stories = realStories.map((s) {
+        final hoursAgo = s.dateCreation != null
+            ? DateTime.now().difference(s.dateCreation!).inHours
+            : 0;
+        final timeLabel = hoursAgo <= 1
+            ? 'Il y a moins d\'une heure'
+            : (hoursAgo < 24 ? 'Il y a ${hoursAgo}h' : 'Hier');
+        return StoryItem(
+          imagePath: s.mediaUrl,
+          caption: '${widget.salonName} • Story exclusive',
+          timestamp: timeLabel,
+        );
+      }).toList();
+    } else if (dynamicReels.isNotEmpty || fallbackTransversales.isNotEmpty) {
+      final activeList = dynamicReels.isNotEmpty
+          ? dynamicReels
+          : (widget.slug.isEmpty ? fallbackTransversales : <RealisationSalonModel>[]);
+      stories = activeList.map((r) {
+        return StoryItem(
+          imagePath: r.urlVideo ?? 'assets/images/story_img_0.jpg',
+          caption: r.description != null && r.description!.isNotEmpty
+              ? '${r.titre} • ${r.description}'
+              : r.titre,
+          timestamp: 'Aujourd\'hui',
+        );
+      }).toList();
+    } else {
+      stories = [];
+    }
+
+    _totalStories = stories.length;
+
+    if (stories.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: AppColors.figmaActiveGold,
+                      child: Text(
+                        widget.initials,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        widget.salonName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white, size: 26),
+                      onPressed: () => context.pop(),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.auto_stories_outlined,
+                          size: 64,
+                          color: Colors.white38,
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Aucune story disponible',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Ce salon n\'a aucune story ou réalisation publiée pour le moment.',
+                          style: TextStyle(color: Colors.white60, fontSize: 13),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                          onPressed: () => context.pop(),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.figmaActiveGold,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('Fermer'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final currentStory = stories[_currentIndex.clamp(0, stories.length - 1)];
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -131,21 +375,7 @@ class _StoryScreenState extends State<StoryScreen>
           fit: StackFit.expand,
           children: [
             // 1. IMAGE DE FOND FULLSCREEN
-            Image.asset(
-              currentStory.imagePath,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: double.infinity,
-              errorBuilder: (_, _, _) => Container(
-                color: const Color(0xFF1F1A18),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.image_not_supported_rounded,
-                  color: Colors.white54,
-                  size: 48,
-                ),
-              ),
-            ),
+            _buildStoryImage(currentStory.imagePath),
 
             // 2. DÉGRADÉ SUPÉRIEUR POUR LA LISIBILITÉ DE L'APP BAR & PROGRESS BARS
             Positioned(
@@ -196,12 +426,12 @@ class _StoryScreenState extends State<StoryScreen>
                   children: [
                     // A. BARRES DE PROGRESSION SEGMENTÉES (Comme Instagram / WhatsApp)
                     Row(
-                      children: List.generate(_stories.length, (index) {
+                      children: List.generate(stories.length, (index) {
                         return Expanded(
                           child: Container(
                             height: 2.5,
                             margin: EdgeInsets.only(
-                              right: index < _stories.length - 1 ? 4.0 : 0.0,
+                              right: index < stories.length - 1 ? 4.0 : 0.0,
                             ),
                             child: AnimatedBuilder(
                               animation: _animController,
@@ -246,14 +476,31 @@ class _StoryScreenState extends State<StoryScreen>
                             ),
                           ),
                           alignment: Alignment.center,
-                          child: Text(
-                            widget.initials,
-                            style: const TextStyle(
-                              color: AppColors.figmaActiveGold,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
+                          child: (logoUrl != null && logoUrl.startsWith('http'))
+                              ? ClipOval(
+                                  child: Image.network(
+                                    logoUrl,
+                                    width: 36,
+                                    height: 36,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) => Text(
+                                      widget.initials,
+                                      style: const TextStyle(
+                                        color: AppColors.figmaActiveGold,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : Text(
+                                  widget.initials,
+                                  style: const TextStyle(
+                                    color: AppColors.figmaActiveGold,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
                         ),
                         const SizedBox(width: 10),
 
@@ -298,134 +545,6 @@ class _StoryScreenState extends State<StoryScreen>
                             child: const Icon(
                               Icons.close_rounded,
                               color: Colors.white,
-                              size: 22,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // 5. ZONE INFÉRIEURE : LÉGENDE & CHAMP RÉPONSE (INTERACTIONS STORIES)
-            Positioned(
-              left: 16,
-              right: 16,
-              bottom: 24,
-              child: SafeArea(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Légende de la story
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        currentStory.caption,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Barre de réponse rapide & bouton J'aime
-                    Row(
-                      children: [
-                        // Champ de message
-                        Expanded(
-                          child: Container(
-                            height: 44,
-                            padding: const EdgeInsets.symmetric(horizontal: 14),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(22),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.3),
-                                width: 1.0,
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: TextField(
-                                    controller: _replyController,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText: 'Envoyer un message...',
-                                      hintStyle: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.7),
-                                        fontSize: 12.5,
-                                      ),
-                                      border: InputBorder.none,
-                                      isDense: true,
-                                      contentPadding: EdgeInsets.zero,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.send_rounded,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
-                                  onPressed: () {
-                                    if (_replyController.text.trim().isNotEmpty) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Message envoyé !'),
-                                          duration: Duration(seconds: 1),
-                                        ),
-                                      );
-                                      _replyController.clear();
-                                    }
-                                  },
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-
-                        // Bouton Like ❤️
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _isLiked = !_isLiked;
-                            });
-                          },
-                          child: Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.white.withValues(alpha: 0.2),
-                              border: Border.all(
-                                color: _isLiked
-                                    ? const Color(0xFFE53935)
-                                    : Colors.white.withValues(alpha: 0.3),
-                                width: 1.0,
-                              ),
-                            ),
-                            alignment: Alignment.center,
-                            child: Icon(
-                              _isLiked
-                                  ? Icons.favorite_rounded
-                                  : Icons.favorite_border_rounded,
-                              color: _isLiked ? const Color(0xFFE53935) : Colors.white,
                               size: 22,
                             ),
                           ),

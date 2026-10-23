@@ -26,8 +26,12 @@ class ApiEndpoints {
   static String salonAvis(String slug) => '/explore/salons/$slug/avis';
   static String salonRealisations(String slug) => '/explore/salons/$slug/realisations';
   static String salonDisponibilites(String slug) => '/explore/salons/$slug/disponibilites';
+  static String salonCoiffeurs(String slug) => '/explore/salons/$slug/coiffeurs';
+  static String salonHoraires(String slug) => '/explore/salons/$slug/horaires';
+  static String salonStories(String slug) => '/$slug/vitrine/stories';
 
-  // Produits & Réalisations transversales
+  // Services, Produits & Réalisations transversales
+  static const String servicesTransversal = '/explore/services';
   static const String produitsTransversal = '/explore/produits';
   static String produitDetail(int id) => '/explore/produits/$id';
   static String produitAvis(int id) => '/explore/produits/$id/avis';
@@ -58,8 +62,15 @@ class ApiEndpoints {
   static const String clientPrestations = '/client/prestations';
   static String clientPrestationDetail(int id) => '/client/prestations/$id';
 
+  // Avis Client
+  static const String clientAvisSalons = '/client/avis/salons';
+  static const String clientAvisPrestations = '/client/avis/prestations';
+  static const String clientAvisProduits = '/client/avis/produits';
+
   // 6. Espace Client : Panier & Commandes
   static const String clientPanier = '/client/panier';
+  static const String clientPaniers = '/client/paniers';
+  static const String clientPaniersViderTous = '/client/paniers';
   static String salonPanier(String slug) => '/$slug/client/panier';
   static String salonPanierArticles(String slug) => '/$slug/client/panier/articles';
   static String salonPanierArticle(String slug, int produitId) => '/$slug/client/panier/articles/$produitId';
@@ -68,6 +79,10 @@ class ApiEndpoints {
   static String clientPanierSupprimer(int id) => '/client/panier/articles/$id';
   static const String clientPanierVider = '/client/panier/vider';
   static const String clientCommandes = '/client/commandes';
+  static String salonCommande(String slug) => '/$slug/client/commandes';
+  static String salonVitrineCommande(String slug) => '/$slug/vitrine/commandes';
+  static String salonVitrineRendezVous(String slug) => '/$slug/vitrine/rendez-vous';
+  static String salonClientRendezVous(String slug) => '/$slug/client/rendez-vous';
   static String clientCommandeDetail(int id) => '/client/commandes/$id';
 
   // 7. Espace Client : Notifications

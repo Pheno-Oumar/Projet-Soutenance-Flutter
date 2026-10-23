@@ -8,12 +8,14 @@ class RouteNames {
 
   // Actions de l'AppBar
   static const String panier = '/panier';
+  static const String panierRendezVous = '/panier-rendez-vous';
   static const String mesRendezVous = '/mes-rendez-vous';
   static const String notifications = '/notifications';
 
   // Routes d'authentification
   static const String login = '/login';
   static const String register = '/register';
+  static const String onboarding = '/onboarding';
 
   // Routes de détail & fonctionnalités
   static const String salonDetail = '/salons/:slug';

@@ -1,202 +1,205 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../routing/route_names.dart';
+import '../data/models/produit_salon_model.dart';
+import 'providers/salon_provider.dart';
 
-class CategorieProduitsScreen extends StatefulWidget {
+class CategorieProduitsScreen extends ConsumerStatefulWidget {
+  final int? categorieId;
+  final String? slugSalon;
+  final String? salonNom;
   final String categoryTitle;
   final String categoryDescription;
 
   const CategorieProduitsScreen({
     super.key,
+    this.categorieId,
+    this.slugSalon,
+    this.salonNom,
     this.categoryTitle = 'Lavage',
     this.categoryDescription =
         'Le lavage consiste à nettoyer le cuir chevelu en éliminant les impuretés, l\'excès de sébum, la transpiration et les résidus de produits de coiffage.',
   });
 
   @override
-  State<CategorieProduitsScreen> createState() => _CategorieProduitsScreenState();
+  ConsumerState<CategorieProduitsScreen> createState() => _CategorieProduitsScreenState();
 }
 
-class _CategorieProduitsScreenState extends State<CategorieProduitsScreen> {
+class _CategorieProduitsScreenState extends ConsumerState<CategorieProduitsScreen> {
   final Set<int> _favoriteIndexes = {};
-
-  final List<Map<String, String>> _produits = const [
-    {
-      'name': 'Oreal',
-      'brand': 'L\'Oréal Professionnel',
-      'price': '5 000 FCFA',
-      'image': 'assets/images/les_produits_d_une_categorie_img_0.png',
-    },
-    {
-      'name': 'Bare',
-      'brand': 'Head & Shoulders',
-      'price': '6 000 FCFA',
-      'image': 'assets/images/les_produits_d_une_categorie_img_1.png',
-    },
-    {
-      'name': 'Najel',
-      'brand': 'Najel Soin Purifiant',
-      'price': '8 000 FCFA',
-      'image': 'assets/images/les_produits_d_une_categorie_img_2.png',
-    },
-    {
-      'name': 'Palmolive',
-      'brand': 'Palmolive Naturals',
-      'price': '4 000 FCFA',
-      'image': 'assets/images/les_produits_d_une_categorie_img_3.png',
-    },
-    {
-      'name': 'Kérastase',
-      'brand': 'Kérastase Paris',
-      'price': '7 000 FCFA',
-      'image': 'assets/images/les_produits_d_une_categorie_img_4.png',
-    },
-    {
-      'name': 'Soin visage',
-      'brand': 'La Rosée Cosmétique',
-      'price': '12 000 FCFA',
-      'image': 'assets/images/les_produits_d_une_categorie_img_5.png',
-    },
-    {
-      'name': 'Oreal',
-      'brand': 'L\'Oréal Professionnel',
-      'price': '5 000 FCFA',
-      'image': 'assets/images/les_produits_d_une_categorie_img_0.png',
-    },
-    {
-      'name': 'Bare',
-      'brand': 'Head & Shoulders',
-      'price': '6 000 FCFA',
-      'image': 'assets/images/les_produits_d_une_categorie_img_1.png',
-    },
-  ];
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final slug = widget.slugSalon;
+
+    final AsyncValue<List<ProduitSalonModel>> produitsAsync = (slug != null && slug.isNotEmpty)
+        ? ref.watch(salonProduitsProvider((slug: slug, categorieId: widget.categorieId)))
+        : ref.watch(produitsTransversauxProvider(widget.categorieId));
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
-      appBar: AppBar(
-        backgroundColor: isDark ? AppColors.darkSurface : AppColors.figmaBrown,
-        elevation: 0,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text(
-          'Produit',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+      appBar: _buildAppBar(isDark),
+      body: produitsAsync.when(
+        loading: () => _buildLoadingBody(isDark),
+        error: (_, _) => _buildEmptyBody(isDark),
+        data: (produits) {
+          if (produits.isEmpty) {
+            return _buildEmptyBody(isDark);
+          }
+          return _buildContent(
+            isDark: isDark,
+            count: produits.length,
+            child: _buildDynamicGrid(produits, isDark),
+          );
+        },
       ),
-      body: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // ==============================================================
-            // 1. SECTION TITRE & DESCRIPTION REMODELÉE (Nom & Description)
-            // ==============================================================
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : AppColors.figmaInputBg,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: isDark ? AppColors.darkBorder : const Color(0xFFEFE8DF),
-                  width: 1.0,
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          widget.categoryTitle,
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w800,
-                            color: isDark ? AppColors.darkTextPrimary : Colors.black,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.figmaBrown.withValues(alpha: isDark ? 0.25 : 0.1),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          '8 références',
-                          style: TextStyle(
-                            color: AppColors.figmaBrown,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    widget.categoryDescription,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: isDark ? AppColors.darkTextSecondary : const Color(0xFF555555),
-                      height: 1.4,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+    );
+  }
 
-            const SizedBox(height: 18),
-
-            // ==============================================================
-            // 2. GRILLE 2 COLONNES DES PRODUITS (100% Column / Row / Container)
-            // ==============================================================
-            for (int i = 0; i < _produits.length; i += 2)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Row(
-                  children: [
-                    Expanded(child: _buildProduitCard(i, isDark)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: i + 1 < _produits.length
-                          ? _buildProduitCard(i + 1, isDark)
-                          : const SizedBox.shrink(),
-                    ),
-                  ],
-                ),
-              ),
-
-            const SizedBox(height: 24),
-          ],
+  AppBar _buildAppBar(bool isDark) {
+    return AppBar(
+      backgroundColor: isDark ? AppColors.darkSurface : AppColors.figmaBrown,
+      elevation: 0,
+      centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+        onPressed: () => context.pop(),
+      ),
+      title: const Text(
+        'Produit',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
   }
 
-  Widget _buildProduitCard(int index, bool isDark) {
-    final item = _produits[index];
-    final isFav = _favoriteIndexes.contains(index);
+  Widget _buildContent({
+    required bool isDark,
+    required int count,
+    required Widget child,
+  }) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      padding: EdgeInsets.fromLTRB(16, 14, 16, context.responsiveValue(compact: 70, standard: 80)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Titre & Description Remodelée
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : AppColors.figmaInputBg,
+              borderRadius: BorderRadius.circular(14),
+              border: context.symmetricBorder(),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.categoryTitle,
+                        style: TextStyle(
+                          fontSize: context.fontSize(19),
+                          fontWeight: FontWeight.w800,
+                          color: context.adaptiveTextColor(),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.figmaBrown.withValues(alpha: isDark ? 0.25 : 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$count référence${count > 1 ? "s" : ""}',
+                        style: const TextStyle(
+                          color: AppColors.figmaBrown,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (widget.categoryDescription.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.categoryDescription,
+                    style: TextStyle(
+                      fontSize: context.fontSize(12.5),
+                      color: context.adaptiveSubtextColor(),
+                      height: 1.4,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // Grille des produits
+          child,
+
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDynamicGrid(List<ProduitSalonModel> produits, bool isDark) {
+    return Column(
+      children: [
+        for (int i = 0; i < produits.length; i += 2)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Expanded(child: _buildDynamicProduitCard(produits[i], isDark)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: i + 1 < produits.length
+                      ? _buildDynamicProduitCard(produits[i + 1], isDark)
+                      : const SizedBox.shrink(),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDynamicProduitCard(ProduitSalonModel produit, bool isDark) {
+    final isFav = _favoriteIndexes.contains(produit.id);
+    final photoUrl = produit.mainImage;
+    final isNetwork = photoUrl != null && photoUrl.startsWith('http');
+    final formattedPrice =
+        '${produit.prixVente.toInt().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} FCFA';
 
     return GestureDetector(
       onTap: () {
+        final encodedTitle = Uri.encodeComponent(produit.nom);
+        final encodedPrice = Uri.encodeComponent(formattedPrice);
+        final encodedImage = Uri.encodeComponent(photoUrl ?? '');
+        final encodedBrand = Uri.encodeComponent(produit.categorieNom ?? widget.categoryTitle);
+        final encodedDesc = Uri.encodeComponent(produit.description ?? '');
+        final encodedSlug = Uri.encodeComponent(widget.slugSalon ?? '');
+        final encodedSalon = Uri.encodeComponent(widget.salonNom ?? '');
+
         context.push(
-          '${RouteNames.produitDetail}?title=${Uri.encodeComponent(item['name']!)}&price=${Uri.encodeComponent(item['price']!)}&image=${Uri.encodeComponent(item['image']!)}',
+          '${RouteNames.produitDetail}?id=${produit.id}&slug=$encodedSlug&salon=$encodedSalon&title=$encodedTitle&price=$encodedPrice&image=$encodedImage&brand=$encodedBrand&desc=$encodedDesc&stock=${produit.quantiteEnStock}',
         );
       },
       child: Container(
@@ -204,7 +207,7 @@ class _CategorieProduitsScreenState extends State<CategorieProduitsScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           color: isDark ? AppColors.darkSurface : const Color(0xFFF0EBE1),
-          border: isDark ? Border.all(color: AppColors.darkBorder, width: 1.0) : null,
+          border: context.symmetricBorder(),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
@@ -219,19 +222,20 @@ class _CategorieProduitsScreenState extends State<CategorieProduitsScreen> {
             fit: StackFit.expand,
             children: [
               // Photo du produit
-              Image.asset(
-                item['image']!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  color: const Color(0xFFE8DFD5),
-                  alignment: Alignment.center,
-                  child: const Icon(
-                    Icons.shopping_bag_outlined,
-                    color: Colors.black38,
-                    size: 32,
-                  ),
+              if (isNetwork)
+                Image.network(
+                  photoUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _buildCardPlaceholder(),
+                )
+              else
+                Image.asset(
+                  photoUrl != null && photoUrl.isNotEmpty
+                      ? photoUrl
+                      : 'assets/images/les_produits_d_une_categorie_img_0.png',
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => _buildCardPlaceholder(),
                 ),
-              ),
 
               // Voile noir transparent dégradé pour la lisibilité
               Container(
@@ -257,9 +261,9 @@ class _CategorieProduitsScreenState extends State<CategorieProduitsScreen> {
                   onTap: () {
                     setState(() {
                       if (isFav) {
-                        _favoriteIndexes.remove(index);
+                        _favoriteIndexes.remove(produit.id);
                       } else {
-                        _favoriteIndexes.add(index);
+                        _favoriteIndexes.add(produit.id);
                       }
                     });
                   },
@@ -280,6 +284,28 @@ class _CategorieProduitsScreenState extends State<CategorieProduitsScreen> {
                 ),
               ),
 
+              // Badge Rupture de stock si épuisé
+              if (produit.isEnRupture)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD32F2F).withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'Épuisé',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+
               // Nom & Prix au bas de la carte
               Positioned(
                 left: 8,
@@ -291,12 +317,12 @@ class _CategorieProduitsScreenState extends State<CategorieProduitsScreen> {
                     // Nom du produit
                     Expanded(
                       child: Text(
-                        item['name']!,
-                        style: const TextStyle(
+                        produit.nom,
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 13,
+                          fontSize: context.fontSize(13),
                           fontWeight: FontWeight.w700,
-                          shadows: [
+                          shadows: const [
                             Shadow(
                               color: Colors.black87,
                               blurRadius: 4,
@@ -309,7 +335,7 @@ class _CategorieProduitsScreenState extends State<CategorieProduitsScreen> {
                     ),
                     const SizedBox(width: 4),
 
-                    // Badge de prix avec bordure dorée Figma (Stroke en or)
+                    // Badge de prix avec bordure dorée Figma
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3.5),
                       decoration: BoxDecoration(
@@ -320,12 +346,15 @@ class _CategorieProduitsScreenState extends State<CategorieProduitsScreen> {
                           width: 1.1,
                         ),
                       ),
-                      child: Text(
-                        item['price']!,
-                        style: const TextStyle(
-                          color: AppColors.figmaActiveGold,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          formattedPrice,
+                          style: TextStyle(
+                            color: AppColors.figmaActiveGold,
+                            fontSize: context.fontSize(10),
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
@@ -335,6 +364,99 @@ class _CategorieProduitsScreenState extends State<CategorieProduitsScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyBody(bool isDark) {
+    return _buildContent(
+      isDark: isDark,
+      count: 0,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.figmaCardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: context.symmetricBorder(),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              Icons.shopping_bag_outlined,
+              size: 36,
+              color: AppColors.figmaActiveGold.withValues(alpha: 0.6),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Aucun produit disponible dans cette catégorie',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13.5,
+                color: context.adaptiveSubtextColor(),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCardPlaceholder() {
+    return Container(
+      color: const Color(0xFFE8DFD5),
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.shopping_bag_outlined,
+        color: Colors.black38,
+        size: 32,
+      ),
+    );
+  }
+
+  Widget _buildLoadingBody(bool isDark) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Container(
+            height: 90,
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
+          const SizedBox(height: 18),
+          for (int i = 0; i < 3; i++)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: 185,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkSurface : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      height: 185,
+                      decoration: BoxDecoration(
+                        color: isDark ? AppColors.darkSurface : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }

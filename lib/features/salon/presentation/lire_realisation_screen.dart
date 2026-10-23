@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import 'providers/salon_provider.dart';
+import '../data/models/realisation_salon_model.dart';
 
-class LireRealisationScreen extends StatefulWidget {
+class LireRealisationScreen extends ConsumerStatefulWidget {
   final int initialIndex;
   final String salonName;
   final String initials;
@@ -17,10 +20,10 @@ class LireRealisationScreen extends StatefulWidget {
   });
 
   @override
-  State<LireRealisationScreen> createState() => _LireRealisationScreenState();
+  ConsumerState<LireRealisationScreen> createState() => _LireRealisationScreenState();
 }
 
-class _LireRealisationScreenState extends State<LireRealisationScreen> {
+class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
   late final PageController _pageController;
   final TextEditingController _commentController = TextEditingController();
 
@@ -28,86 +31,10 @@ class _LireRealisationScreenState extends State<LireRealisationScreen> {
   final Set<int> _savedIndexes = {};
   final Set<String> _followedSalons = {};
 
-  final List<Map<String, dynamic>> _reels = [
-    {
-      'image': 'assets/images/lire_realisation_img_0.jpeg',
-      'title': 'Tresse africaine avec chignon',
-      'desc': 'Un look élégant et intemporel, parfait pour toutes les occasions.',
-      'likes': '12,4K',
-      'comments': '342',
-      'saves': '1,8K',
-    },
-    {
-      'image': 'assets/images/realisation_img_1.png',
-      'title': 'Box Braids Sculptées',
-      'desc': 'Tresses protectrices soignées avec finitions dorées éclatantes.',
-      'likes': '8,7K',
-      'comments': '184',
-      'saves': '920',
-    },
-    {
-      'image': 'assets/images/realisation_img_2.png',
-      'title': 'Dégradé Homme Prestige',
-      'desc': 'Coupe précise et contours soignés avec traçage barbe impeccable.',
-      'likes': '15,2K',
-      'comments': '512',
-      'saves': '2,4K',
-    },
-    {
-      'image': 'assets/images/realisation_img_3.png',
-      'title': 'Soins Kératine & Brushing',
-      'desc': 'Soin lissant régénérant pour une brillance absolue et un toucher soyeux.',
-      'likes': '9,6K',
-      'comments': '248',
-      'saves': '1,1K',
-    },
-    {
-      'image': 'assets/images/realisation_img_4.png',
-      'title': 'Knotless Braids Chic',
-      'desc': 'Tresses sans nœuds ultra légères et confortables au quotidien.',
-      'likes': '11,9K',
-      'comments': '390',
-      'saves': '1,5K',
-    },
-    {
-      'image': 'assets/images/realisation_img_5.png',
-      'title': 'Tissage Naturel Ondulé',
-      'desc': 'Volume et longueur avec intégration invisible et maintien longue durée.',
-      'likes': '7,4K',
-      'comments': '160',
-      'saves': '830',
-    },
-    {
-      'image': 'assets/images/realisation_img_6.png',
-      'title': 'Balayage Doré Lumineux',
-      'desc': 'Éclaircissement délicat et naturel sublimant les reflets au soleil.',
-      'likes': '18,3K',
-      'comments': '670',
-      'saves': '3,1K',
-    },
-    {
-      'image': 'assets/images/realisation_img_7.png',
-      'title': 'Nattes Collées Graphiques',
-      'desc': 'Motifs géométriques travaillés pour un style afro-chic affirmé.',
-      'likes': '10,7K',
-      'comments': '295',
-      'saves': '1,4K',
-    },
-    {
-      'image': 'assets/images/realisation_img_8.png',
-      'title': 'Coiffure Mariage Glamour',
-      'desc': 'Chignon sophistiqué orné pour les plus beaux événements.',
-      'likes': '6,8K',
-      'comments': '142',
-      'saves': '670',
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
-    final clampedIndex = widget.initialIndex.clamp(0, _reels.length - 1);
-    _pageController = PageController(initialPage: clampedIndex);
+    _pageController = PageController(initialPage: widget.initialIndex);
   }
 
   @override
@@ -124,6 +51,79 @@ class _LireRealisationScreenState extends State<LireRealisationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final realisationsAsync = ref.watch(salonRealisationsProvider(widget.salonSlug));
+    final dynamicReels = realisationsAsync.valueOrNull ?? [];
+    final fallbackTransversales = ref.watch(realisationsTransversalesProvider).valueOrNull ?? [];
+    final activeList = dynamicReels.isNotEmpty
+        ? dynamicReels
+        : (widget.salonSlug.isEmpty ? fallbackTransversales : <RealisationSalonModel>[]);
+
+    final reelsList = activeList.map((r) {
+      final viewsFormatted = r.totalVues >= 1000
+          ? '${(r.totalVues / 1000).toStringAsFixed(1).replaceAll('.', ',')}K'
+          : '${r.totalVues}';
+      final likesFormatted = r.totalLikes >= 1000
+          ? '${(r.totalLikes / 1000).toStringAsFixed(1).replaceAll('.', ',')}K'
+          : '${r.totalLikes}';
+      return {
+        'image': r.urlVideo ?? 'assets/images/lire_realisation_img_0.jpeg',
+        'title': r.titre,
+        'desc': r.description ?? 'Prestation réalisée avec soin.',
+        'likes': likesFormatted,
+        'comments': '${r.totalCommentaires}',
+        'saves': viewsFormatted,
+      };
+    }).toList();
+
+    if (reelsList.isEmpty) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(widget.salonName, style: const TextStyle(color: Colors.white, fontSize: 16)),
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.video_library_outlined, size: 64, color: Colors.white38),
+                const SizedBox(height: 16),
+                const Text(
+                  'Aucune réalisation disponible',
+                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Ce salon n\'a pas encore publié de vidéo ou look dans sa vitrine.',
+                  style: TextStyle(color: Colors.white60, fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                ElevatedButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.figmaActiveGold,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Retour'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
@@ -135,30 +135,47 @@ class _LireRealisationScreenState extends State<LireRealisationScreen> {
           PageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
-            itemCount: _reels.length,
+            itemCount: reelsList.length,
             itemBuilder: (context, index) {
-              final item = _reels[index];
+              final item = reelsList[index];
               final isLiked = _likedIndexes.contains(index);
               final isSaved = _savedIndexes.contains(index);
               final isFollowed = _followedSalons.contains(widget.salonSlug);
+              final imgPath = item['image'] as String;
+              final isNetwork = imgPath.startsWith('http');
 
               return Stack(
                 fit: StackFit.expand,
                 children: [
                   // Photo / Vidéo plein écran
-                  Image.asset(
-                    item['image'] as String,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: const Color(0xFF1F1A18),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.play_circle_fill_rounded,
-                        color: Colors.white38,
-                        size: 72,
+                  if (isNetwork)
+                    Image.network(
+                      imgPath,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        color: const Color(0xFF1F1A18),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.play_circle_fill_rounded,
+                          color: Colors.white38,
+                          size: 72,
+                        ),
+                      ),
+                    )
+                  else
+                    Image.asset(
+                      imgPath,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        color: const Color(0xFF1F1A18),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.play_circle_fill_rounded,
+                          color: Colors.white38,
+                          size: 72,
+                        ),
                       ),
                     ),
-                  ),
 
                   // Dégradé sombre au bas pour la lisibilité
                   Positioned(

@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/notification_model.dart';
-import '../../data/notification_mock_data.dart';
 import '../../data/notification_repository.dart';
 
 class NotificationListState {
@@ -47,8 +46,9 @@ class NotificationListNotifier extends StateNotifier<NotificationListState> {
 
   NotificationListNotifier(this._repository)
       : super(
-          NotificationListState(
-            notifications: List.from(NotificationMockData.mockNotifications),
+          const NotificationListState(
+            isLoading: true,
+            notifications: [],
           ),
         ) {
     chargerNotifications();
@@ -62,24 +62,12 @@ class NotificationListNotifier extends StateNotifier<NotificationListState> {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final page = await _repository.listerMesNotifications();
-      if (page.content.isNotEmpty) {
-        state = state.copyWith(isLoading: false, notifications: page.content);
-      } else {
-        // Conserver les mock data si le backend renvoie une liste vide
-        state = state.copyWith(
-          isLoading: false,
-          notifications: state.notifications.isEmpty
-              ? List.from(NotificationMockData.mockNotifications)
-              : state.notifications,
-        );
-      }
-    } catch (_) {
-      // En cas d'erreur de connexion, garantir l'affichage des données mock
+      state = state.copyWith(isLoading: false, notifications: page.content);
+    } catch (e) {
       state = state.copyWith(
         isLoading: false,
-        notifications: state.notifications.isEmpty
-            ? List.from(NotificationMockData.mockNotifications)
-            : state.notifications,
+        notifications: const [],
+        error: e.toString(),
       );
     }
   }

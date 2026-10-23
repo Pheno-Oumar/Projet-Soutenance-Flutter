@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 
 class SalonHeaderWidget extends StatelessWidget {
   final String salonName;
@@ -31,19 +32,41 @@ class SalonHeaderWidget extends StatelessWidget {
     required this.onBackPressed,
   });
 
+  Widget _buildImage(
+    String? path, {
+    required BoxFit fit,
+    required Widget errorFallback,
+  }) {
+    if (path == null || path.trim().isEmpty) {
+      return errorFallback;
+    }
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return Image.network(
+        path,
+        fit: fit,
+        errorBuilder: (_, _, _) => errorFallback,
+      );
+    }
+    return Image.asset(
+      path,
+      fit: fit,
+      errorBuilder: (_, _, _) => errorFallback,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 260,
+      height: context.heightPercent(0.32, min: 250.0, max: 320.0),
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
         children: [
           // 1. Image de couverture du salon
-          Image.asset(
+          _buildImage(
             coverImage,
             fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
+            errorFallback: Container(
               color: const Color(0xFF382319),
               alignment: Alignment.center,
               child: const Icon(
@@ -152,10 +175,10 @@ class SalonHeaderWidget extends StatelessWidget {
                     ],
                   ),
                   child: ClipOval(
-                    child: Image.asset(
+                    child: _buildImage(
                       logoImage,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
+                      errorFallback: Container(
                         color: const Color(0xFF2E1C15),
                         alignment: Alignment.center,
                         child: Text(
@@ -177,15 +200,18 @@ class SalonHeaderWidget extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        salonName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          salonName,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: context.fontSize(17),
+                            fontWeight: FontWeight.w800,
+                          ),
+                          maxLines: 1,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
                       Row(
@@ -198,9 +224,9 @@ class SalonHeaderWidget extends StatelessWidget {
                           const SizedBox(width: 3),
                           Text(
                             '$rating ($reviewsCount)',
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 12,
+                              fontSize: context.fontSize(12),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -218,9 +244,9 @@ class SalonHeaderWidget extends StatelessWidget {
                           Expanded(
                             child: Text(
                               location,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white,
-                                fontSize: 11.5,
+                                fontSize: context.fontSize(11.5),
                                 fontWeight: FontWeight.w500,
                               ),
                               maxLines: 1,
@@ -232,6 +258,8 @@ class SalonHeaderWidget extends StatelessWidget {
                     ],
                   ),
                 ),
+
+                const SizedBox(width: 8),
 
                 // Badge Ouvert & Horaires
                 Column(
@@ -265,9 +293,9 @@ class SalonHeaderWidget extends StatelessWidget {
                           const SizedBox(width: 5),
                           Text(
                             status,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Colors.white,
-                              fontSize: 11,
+                              fontSize: context.fontSize(11),
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -277,9 +305,9 @@ class SalonHeaderWidget extends StatelessWidget {
                     const SizedBox(height: 3),
                     Text(
                       hours,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 10.5,
+                        fontSize: context.fontSize(10.5),
                         fontWeight: FontWeight.w500,
                       ),
                     ),

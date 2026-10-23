@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../rendezvous/data/rendezvous_mock_data.dart';
+import '../../../salon/data/models/salon_item_model.dart';
 import '../../data/models/prestation_model.dart';
-import '../../data/prestation_mock_data.dart';
+import '../../data/prestation_repository.dart';
 
 class MesPrestationsState {
   final List<PrestationModel> allPrestations;
@@ -10,7 +10,7 @@ class MesPrestationsState {
   final bool isLoading;
 
   const MesPrestationsState({
-    required this.allPrestations,
+    this.allPrestations = const [],
     this.selectedStatutTab = 'TOUT',
     this.selectedSalonSlug,
     this.isLoading = false,
@@ -75,12 +75,12 @@ class MesPrestationsState {
 }
 
 class MesPrestationsNotifier extends StateNotifier<MesPrestationsState> {
-  MesPrestationsNotifier()
-      : super(
-          MesPrestationsState(
-            allPrestations: List.from(PrestationMockData.mockPrestations),
-          ),
-        );
+  final PrestationRepository _repository;
+
+  MesPrestationsNotifier(this._repository)
+      : super(const MesPrestationsState(isLoading: true)) {
+    chargerPrestations();
+  }
 
   void changerStatutTab(String tab) {
     state = state.copyWith(selectedStatutTab: tab);
@@ -94,17 +94,28 @@ class MesPrestationsNotifier extends StateNotifier<MesPrestationsState> {
     }
   }
 
-  void chargerPrestations() {
+  Future<void> chargerPrestations() async {
     state = state.copyWith(isLoading: true);
-    // Synchrone pour réactivité immédiate
-    state = state.copyWith(
-      allPrestations: List.from(PrestationMockData.mockPrestations),
-      isLoading: false,
-    );
+    try {
+      final list = await _repository.listerMesPrestations(
+        slugSalon: state.selectedSalonSlug,
+        statut: state.selectedStatutTab,
+      );
+      state = state.copyWith(
+        allPrestations: list,
+        isLoading: false,
+      );
+    } catch (_) {
+      state = state.copyWith(
+        allPrestations: const [],
+        isLoading: false,
+      );
+    }
   }
 }
 
 final mesPrestationsProvider =
-    StateNotifierProvider<MesPrestationsNotifier, MesPrestationsState>((ref) {
-  return MesPrestationsNotifier();
+    StateNotifierProvider.autoDispose<MesPrestationsNotifier, MesPrestationsState>((ref) {
+  final repository = ref.watch(prestationRepositoryProvider);
+  return MesPrestationsNotifier(repository);
 });

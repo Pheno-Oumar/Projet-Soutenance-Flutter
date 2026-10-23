@@ -4,7 +4,6 @@ import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import 'models/profil_capillaire_model.dart';
 import 'models/recommandation_capillaire_model.dart';
-import 'recommandation_mock_data.dart';
 
 final recommandationServiceProvider = Provider<RecommandationService>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -23,10 +22,9 @@ class RecommandationService {
       if (response.data != null && response.data['data'] != null) {
         return RecommandationCapillaireModel.fromJson(response.data['data'] as Map<String, dynamic>);
       }
-      return RecommandationMockData.mockDerniereRecommandation;
+      return null;
     } catch (_) {
-      // Données de repli réalistes
-      return RecommandationMockData.mockDerniereRecommandation;
+      return null;
     }
   }
 
@@ -37,7 +35,7 @@ class RecommandationService {
       if (response.data != null && response.data['data'] != null) {
         return RecommandationCapillaireModel.fromJson(response.data['data'] as Map<String, dynamic>);
       }
-      return RecommandationMockData.mockDerniereRecommandation;
+      throw Exception('Aucune donnée de recommandation retournée.');
     } on DioException catch (e) {
       final errorMsg = e.response?.data?['message'] ?? e.message ?? 'Erreur lors de la génération';
       throw Exception(errorMsg);
@@ -48,21 +46,11 @@ class RecommandationService {
 
   /// 3. Obtenir les détails d'une recommandation spécifique
   Future<RecommandationCapillaireModel> getDetailRecommandation(int id) async {
-    try {
-      final response = await _apiClient.get(ApiEndpoints.clientRecommandationDetail(id));
-      if (response.data != null && response.data['data'] != null) {
-        return RecommandationCapillaireModel.fromJson(response.data['data'] as Map<String, dynamic>);
-      }
-      return RecommandationMockData.mockHistorique.firstWhere(
-        (r) => r.id == id,
-        orElse: () => RecommandationMockData.mockDerniereRecommandation,
-      );
-    } catch (_) {
-      return RecommandationMockData.mockHistorique.firstWhere(
-        (r) => r.id == id,
-        orElse: () => RecommandationMockData.mockDerniereRecommandation,
-      );
+    final response = await _apiClient.get(ApiEndpoints.clientRecommandationDetail(id));
+    if (response.data != null && response.data['data'] != null) {
+      return RecommandationCapillaireModel.fromJson(response.data['data'] as Map<String, dynamic>);
     }
+    throw Exception('Détail de la recommandation introuvable.');
   }
 
   /// 4. Obtenir l'historique complet des recommandations
@@ -79,13 +67,11 @@ class RecommandationService {
 
       if (response.data != null && response.data['data'] is List) {
         final list = response.data['data'] as List;
-        if (list.isNotEmpty) {
-          return list.map((e) => RecommandationCapillaireModel.fromJson(e as Map<String, dynamic>)).toList();
-        }
+        return list.map((e) => RecommandationCapillaireModel.fromJson(e as Map<String, dynamic>)).toList();
       }
-      return RecommandationMockData.mockHistorique;
+      return const [];
     } catch (_) {
-      return RecommandationMockData.mockHistorique;
+      return const [];
     }
   }
 
@@ -96,39 +82,37 @@ class RecommandationService {
       if (response.data != null && response.data['data'] != null) {
         return ProfilCapillaireModel.fromJson(response.data['data'] as Map<String, dynamic>);
       }
-      return RecommandationMockData.mockProfilCapillaire;
+      return null;
     } catch (_) {
-      return RecommandationMockData.mockProfilCapillaire;
+      return null;
     }
   }
 
   /// 6. Enregistrer ou mettre à jour son profil capillaire
   Future<ProfilCapillaireModel> enregistrerOuModifierProfil(Map<String, dynamic> payload) async {
-    try {
-      final response = await _apiClient.put(
-        ApiEndpoints.clientProfilCapillaire,
-        data: payload,
-      );
-      if (response.data != null && response.data['data'] != null) {
-        return ProfilCapillaireModel.fromJson(response.data['data'] as Map<String, dynamic>);
-      }
-      return RecommandationMockData.mockProfilCapillaire;
-    } catch (e) {
-      // Simuler la mise à jour locale
-      return ProfilCapillaireModel.fromJson(payload);
+    final response = await _apiClient.put(
+      ApiEndpoints.clientProfilCapillaire,
+      data: payload,
+    );
+    if (response.data != null && response.data['data'] != null) {
+      return ProfilCapillaireModel.fromJson(response.data['data'] as Map<String, dynamic>);
     }
+    throw Exception('Erreur lors de la mise à jour du profil capillaire');
   }
 
   /// 7. Définir ou modifier le code PIN du profil
   Future<bool> definirCodePin(String codePin) async {
     try {
-      final response = await _apiClient.put(
+      final response = await _apiClient.patch(
         ApiEndpoints.clientProfilCapillaireCode,
-        data: {'code': codePin},
+        data: {
+          'codePin': codePin,
+          'code': codePin,
+        },
       );
       return response.statusCode == 200;
     } catch (_) {
-      return true;
+      return false;
     }
   }
 }

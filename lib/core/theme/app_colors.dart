@@ -31,6 +31,7 @@ class AppColors {
 
   // Bordures & séparateurs
   static const Color border = Color(0xFFE7DFD5);
+  static const Color lightBorder = Color(0xFFE2D8CC); // Bordure symétrique claire (1px)
   static const Color divider = Color(0xFFF0EAE1);
 
   // Badge notification / panier
@@ -48,20 +49,21 @@ class AppColors {
   static const Color figmaCardBg = Color(0xFFEEE1D6); // Fond beige chaleureux des cartes
   static const Color figmaInputBg = Color(0xFFFAF8F5); // Fond barre de recherche & sélecteur 5km
   static const Color figmaBorder = Color(0xFFE0E4EB); // Bordure discrète
+  static const Color figmaCardBorder = Color(0xFFE2D8CC); // Bordure symétrique des cartes en mode clair (1px)
   static const Color figmaMutedText = Color(0xFF717A88); // Textes secondaires
   static const Color figmaRatingBg = Color(0xA6000000); // Fond sombre transparent pour ★ 4.9
 
   // ==============================================================
-  // PALETTE DARK THEME (Élégant, chaud et raffiné)
+  // PALETTE DARK THEME (Élégant, chaud et raffiné - Haute lisibilité)
   // ==============================================================
   static const Color darkBackground = Color(0xFF141211); // Fond principal sombre chaleureux
   static const Color darkSurface = Color(0xFF1E1A17); // Surfaces / cartes sombres
   static const Color darkSurfaceVariant = Color(0xFF2B2521); // Cartes secondaires / surélévations
   static const Color darkCardBg = Color(0xFF26201C); // Fond de carte sombre
-  static const Color darkBorder = Color(0xFF3D342D); // Bordures sombres subtiles
+  static const Color darkBorder = Color(0xFF3D342D); // Bordures sombres subtiles (1px)
   static const Color darkDivider = Color(0xFF332B25); // Séparateurs sombres
-  static const Color darkTextPrimary = Color(0xFFF9F6F0); // Texte principal clair
-  static const Color darkTextSecondary = Color(0xFFB8ADA4); // Texte secondaire
-  static const Color darkTextMuted = Color(0xFF8A7F77); // Texte estompé
+  static const Color darkTextPrimary = Color(0xFFFAF7F2); // Texte principal très clair, net et lisible
+  static const Color darkTextSecondary = Color(0xFFC7BCB3); // Texte secondaire à haut contraste (lisibilité renforcée)
+  static const Color darkTextMuted = Color(0xFF9E9288); // Texte estompé
   static const Color darkInputBg = Color(0xFF1F1A17); // Fond des champs de saisie sombres
 }

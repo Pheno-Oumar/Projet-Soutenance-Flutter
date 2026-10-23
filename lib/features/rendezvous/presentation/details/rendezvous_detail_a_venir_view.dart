@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../data/models/rendezvous_model.dart';
 import '../providers/rendezvous_provider.dart';
 import '../widgets/rendezvous_header_widget.dart';
@@ -54,16 +55,16 @@ class RendezVousDetailAVenirView extends ConsumerWidget {
               Text(
                 'Annuler le rendez-vous ?',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: ctx.fontSize(18),
                   fontWeight: FontWeight.w800,
                   color: isDark ? AppColors.darkTextPrimary : AppColors.figmaBrown,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                'Êtes-vous sûr de vouloir annuler votre rendez-vous pour ${rdv.salonNom ?? 'ce salon'} prévu le ${rdv.dateHeurePrevue ?? ''} ?',
+                'Êtes-vous sûr de vouloir annuler votre rendez-vous pour ${rdv.salonNom ?? 'ce salon'} prévu le ${rdv.dateHeureFormatee} ?',
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: ctx.fontSize(13),
                   color: isDark ? AppColors.darkTextSecondary : Colors.grey[600],
                 ),
               ),
@@ -81,13 +82,13 @@ class RendezVousDetailAVenirView extends ConsumerWidget {
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? AppColors.darkBorder : const Color(0xFFEFE9E0),
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? AppColors.darkBorder : const Color(0xFFEFE9E0),
+                      color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -110,16 +111,20 @@ class RendezVousDetailAVenirView extends ConsumerWidget {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         side: BorderSide(
-                          color: isDark ? AppColors.darkBorder : Colors.grey[300]!,
+                          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        'Non, garder',
-                        style: TextStyle(
-                          color: isDark ? AppColors.darkTextSecondary : null,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Non, garder',
+                          style: TextStyle(
+                            color: isDark ? AppColors.darkTextSecondary : null,
+                            fontSize: ctx.fontSize(14),
+                          ),
                         ),
                       ),
                     ),
@@ -152,9 +157,15 @@ class RendezVousDetailAVenirView extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Oui, annuler',
-                        style: TextStyle(fontWeight: FontWeight.w700),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Oui, annuler',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: ctx.fontSize(14),
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -184,7 +195,12 @@ class RendezVousDetailAVenirView extends ConsumerWidget {
           // Contenu déroulant
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: context.responsiveValue(compact: 70.0, standard: 80.0),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -192,7 +208,7 @@ class RendezVousDetailAVenirView extends ConsumerWidget {
                   Text(
                     'Prestations',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: context.fontSize(16),
                       fontWeight: FontWeight.w800,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                     ),
@@ -205,7 +221,7 @@ class RendezVousDetailAVenirView extends ConsumerWidget {
                   Text(
                     'Informations',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: context.fontSize(16),
                       fontWeight: FontWeight.w800,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                     ),
@@ -217,25 +233,28 @@ class RendezVousDetailAVenirView extends ConsumerWidget {
                   // Bouton Annuler le RDV
                   SizedBox(
                     width: double.infinity,
-                    height: 48,
+                    height: context.responsiveValue(compact: 44.0, standard: 48.0),
                     child: OutlinedButton(
                       onPressed: () => _confirmerAnnulation(context, ref),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(
                           color: Color(0xFFE53935),
-                          width: 1.2,
+                          width: 1.0,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                         backgroundColor: isDark ? const Color(0xFF2B1717) : Colors.white,
                       ),
-                      child: const Text(
-                        'Annuler le RDV',
-                        style: TextStyle(
-                          color: Color(0xFFE53935),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Annuler le RDV',
+                          style: TextStyle(
+                            color: const Color(0xFFE53935),
+                            fontSize: context.fontSize(15),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),

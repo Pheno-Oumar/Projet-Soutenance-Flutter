@@ -56,8 +56,8 @@ class CodeRetraitDialog extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: const Icon(
-              Icons.qr_code_2_rounded,
-              size: 32,
+              Icons.vpn_key_rounded,
+              size: 28,
               color: AppColors.figmaBrown,
             ),
           ),
@@ -86,7 +86,7 @@ class CodeRetraitDialog extends StatelessWidget {
 
           // Boîte du Code de Retrait
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkInputBg : const Color(0xFFFDFBF9),
               borderRadius: BorderRadius.circular(14),
@@ -98,34 +98,13 @@ class CodeRetraitDialog extends StatelessWidget {
                 Text(
                   codeRetrait,
                   style: const TextStyle(
-                    fontSize: 24,
+                    fontSize: 26,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 2.0,
+                    letterSpacing: 2.5,
                     color: AppColors.figmaBrown,
                   ),
                 ),
               ],
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Fausse simulation de code-barres stylisée
-          Container(
-            height: 44,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(36, (index) {
-                final isThick = index % 3 == 0 || index % 7 == 0;
-                final isSpace = index % 5 == 0;
-                if (isSpace) return const SizedBox(width: 2);
-                return Container(
-                  width: isThick ? 3 : 1.5,
-                  height: 40,
-                  color: isDark ? AppColors.darkTextPrimary : Colors.black87,
-                );
-              }),
             ),
           ),
 

@@ -1,35 +1,46 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:mobile_hair_style/features/auth/presentation/providers/auth_provider.dart';
-import 'package:mobile_hair_style/features/panier/data/models/panier_model.dart';
-import 'package:mobile_hair_style/features/panier/data/panier_repository.dart';
-
-final localPanierCountProvider = StateProvider<int>((ref) => 0);
-
-final panierCountProvider = Provider<int>((ref) {
-  final local = ref.watch(localPanierCountProvider);
-  final panier = ref.watch(panierStateProvider).panier;
-  return (panier?.nombreArticles ?? 0) + local;
-});
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../commandes/data/models/commande_model.dart';
+import '../../data/models/panier_model.dart';
+import '../../data/panier_repository.dart';
 
 class PanierState {
   final bool isLoading;
-  final PanierModel? panier;
+  final bool isValidating;
+  final String? validatingSalonSlug;
+  final List<PanierModel> paniers;
   final String? error;
 
   const PanierState({
     this.isLoading = false,
-    this.panier,
+    this.isValidating = false,
+    this.validatingSalonSlug,
+    this.paniers = const [],
     this.error,
   });
 
+  int get totalArticles =>
+      paniers.fold<int>(0, (sum, p) => sum + p.nombreArticles);
+
+  double get montantTotalGlobal =>
+      paniers.fold<double>(0.0, (sum, p) => sum + p.montantTotal);
+
   PanierState copyWith({
     bool? isLoading,
-    PanierModel? panier,
+    bool? isValidating,
+    String? validatingSalonSlug,
+    bool clearValidatingSlug = false,
+    List<PanierModel>? paniers,
     String? error,
   }) {
     return PanierState(
       isLoading: isLoading ?? this.isLoading,
-      panier: panier ?? this.panier,
+      isValidating: isValidating ?? this.isValidating,
+      validatingSalonSlug: clearValidatingSlug
+          ? null
+          : (validatingSalonSlug ?? this.validatingSalonSlug),
+      paniers: paniers ?? this.paniers,
       error: error,
     );
   }
@@ -40,56 +51,238 @@ class PanierNotifier extends StateNotifier<PanierState> {
   final Ref _ref;
 
   PanierNotifier(this._repository, this._ref) : super(const PanierState()) {
-    chargerPanier();
+    _init();
+    _listenAuth();
   }
 
-  Future<void> chargerPanier({String? slugSalon}) async {
-    final authState = _ref.read(authStateProvider);
-    if (!authState.isAuthenticated) {
-      state = const PanierState();
-      return;
-    }
+  void _listenAuth() {
+    _ref.listen<AuthState>(authStateProvider, (prev, next) {
+      if (prev?.isAuthenticated == false && next.isAuthenticated) {
+        synchroniserApresConnexion();
+      } else {
+        chargerPaniers();
+      }
+    });
+  }
 
+  Future<void> _init() async {
+    await chargerPaniers();
+  }
+
+  Future<void> chargerPaniers() async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final panier = await _repository.getPanier(slugSalon: slugSalon);
-      state = state.copyWith(isLoading: false, panier: panier);
+      final isAuth = _ref.read(authStateProvider).isAuthenticated;
+      final paniers = await _repository.getPaniers(isAuth: isAuth);
+      state = state.copyWith(isLoading: false, paniers: paniers);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: e.toString());
     }
   }
 
-  Future<void> modifierQuantite(String slugSalon, int produitId, int quantite) async {
-    try {
-      final updated = await _repository.modifierQuantite(
+  Future<void> ajouterArticle({
+    required String slugSalon,
+    String? salonNom,
+    required int produitId,
+    required String produitNom,
+    required double prixUnitaire,
+    required int quantite,
+    String? imageUrl,
+  }) async {
+    final isAuth = _ref.read(authStateProvider).isAuthenticated;
+    if (isAuth) {
+      try {
+        await _repository.ajouterArticleRemote(
+          slugSalon: slugSalon,
+          produitId: produitId,
+          quantite: quantite,
+        );
+        await chargerPaniers();
+      } catch (_) {}
+    } else {
+      final updated = await _repository.ajouterArticleLocal(
         slugSalon: slugSalon,
+        salonNom: salonNom,
         produitId: produitId,
+        produitNom: produitNom,
+        prixUnitaire: prixUnitaire,
         quantite: quantite,
+        imageUrl: imageUrl,
       );
-      state = state.copyWith(panier: updated);
-    } catch (_) {}
+      state = state.copyWith(paniers: updated);
+    }
   }
 
-  Future<void> supprimerArticle(String slugSalon, int produitId) async {
-    try {
-      final updated = await _repository.supprimerArticle(
-        slugSalon: slugSalon,
-        produitId: produitId,
-      );
-      state = state.copyWith(panier: updated);
-    } catch (_) {}
+  Future<void> modifierQuantite({
+    required String slugSalon,
+    required int produitId,
+    required int quantite,
+  }) async {
+    final isAuth = _ref.read(authStateProvider).isAuthenticated;
+    if (isAuth) {
+      try {
+        await _repository.modifierQuantiteRemote(
+          slugSalon: slugSalon,
+          produitId: produitId,
+          quantite: quantite,
+        );
+        await chargerPaniers();
+      } catch (_) {}
+    } else {
+      final current = List<PanierModel>.from(state.paniers);
+      final pIndex = current.indexWhere((p) => p.slugSalon == slugSalon);
+      if (pIndex >= 0) {
+        final panier = current[pIndex];
+        final updatedLignes = panier.lignes.map((l) {
+          if (l.produitId == produitId) {
+            return l.copyWith(
+              quantite: quantite,
+              sousTotal: l.prixUnitaire * quantite,
+            );
+          }
+          return l;
+        }).where((l) => l.quantite > 0).toList();
+
+        current[pIndex] = panier.copyWith(
+          lignes: updatedLignes,
+          montantTotal: updatedLignes.fold<double>(0.0, (s, l) => s + l.sousTotal),
+          nombreArticles: updatedLignes.fold<int>(0, (s, l) => s + l.quantite),
+        );
+        await _repository.saveLocalPaniers(current);
+        state = state.copyWith(paniers: current.where((p) => p.lignes.isNotEmpty).toList());
+      }
+    }
   }
 
-  Future<void> vider(String slugSalon) async {
+  Future<void> supprimerArticle({
+    required String slugSalon,
+    required int produitId,
+  }) async {
+    final isAuth = _ref.read(authStateProvider).isAuthenticated;
+    if (isAuth) {
+      try {
+        await _repository.supprimerArticleRemote(
+          slugSalon: slugSalon,
+          produitId: produitId,
+        );
+        await chargerPaniers();
+      } catch (_) {}
+    } else {
+      final current = List<PanierModel>.from(state.paniers);
+      final pIndex = current.indexWhere((p) => p.slugSalon == slugSalon);
+      if (pIndex >= 0) {
+        final panier = current[pIndex];
+        final updatedLignes = panier.lignes.where((l) => l.produitId != produitId).toList();
+        current[pIndex] = panier.copyWith(
+          lignes: updatedLignes,
+          montantTotal: updatedLignes.fold<double>(0.0, (s, l) => s + l.sousTotal),
+          nombreArticles: updatedLignes.fold<int>(0, (s, l) => s + l.quantite),
+        );
+        final filtered = current.where((p) => p.lignes.isNotEmpty).toList();
+        await _repository.saveLocalPaniers(filtered);
+        state = state.copyWith(paniers: filtered);
+      }
+    }
+  }
+
+  Future<void> viderPanier(String slugSalon) async {
+    final isAuth = _ref.read(authStateProvider).isAuthenticated;
+    if (isAuth) {
+      try {
+        await _repository.viderPanierRemote(slugSalon);
+        await chargerPaniers();
+      } catch (_) {}
+    } else {
+      final updated = state.paniers.where((p) => p.slugSalon != slugSalon).toList();
+      await _repository.saveLocalPaniers(updated);
+      state = state.copyWith(paniers: updated);
+    }
+  }
+
+  Future<void> viderTous() async {
+    final isAuth = _ref.read(authStateProvider).isAuthenticated;
+    if (isAuth) {
+      try {
+        await _repository.viderTousPaniersRemote();
+        await chargerPaniers();
+      } catch (_) {}
+    } else {
+      await _repository.saveLocalPaniers([]);
+      state = state.copyWith(paniers: []);
+    }
+  }
+
+  /// Valider la commande pour un salon spécifique
+  Future<CommandeModel?> validerPanierSalon(String slugSalon) async {
+    state = state.copyWith(isValidating: true, validatingSalonSlug: slugSalon, error: null);
     try {
-      await _repository.viderPanier(slugSalon);
-      state = state.copyWith(panier: null);
-    } catch (_) {}
+      final cmd = await _repository.validerCommandeSalon(slugSalon);
+      state = state.copyWith(isValidating: false, clearValidatingSlug: true);
+      return cmd;
+    } catch (e) {
+      await chargerPaniers();
+      String message = 'Échec de validation de la commande';
+      if (e is DioException && e.response?.data is Map<String, dynamic>) {
+        final data = e.response!.data as Map<String, dynamic>;
+        if (data['message'] != null) {
+          message = data['message'].toString();
+        }
+      } else {
+        message = e.toString();
+      }
+      state = state.copyWith(isValidating: false, clearValidatingSlug: true, error: message);
+      return null;
+    }
+  }
+
+  /// Valider les commandes de tous les salons
+  Future<List<CommandeModel>> validerTousLesPaniers() async {
+    state = state.copyWith(isValidating: true, clearValidatingSlug: true, error: null);
+    final List<CommandeModel> createdOrders = [];
+    final List<PanierModel> paniersAValider = List<PanierModel>.from(state.paniers);
+    try {
+      for (final p in paniersAValider) {
+        if (p.slugSalon != null && p.lignes.isNotEmpty) {
+          final cmd = await _repository.validerCommandeSalon(p.slugSalon!);
+          if (cmd != null) {
+            createdOrders.add(cmd);
+          }
+        }
+      }
+      await _repository.viderTousLesPaniersLocaux();
+      state = state.copyWith(isValidating: false);
+      return createdOrders;
+    } catch (e) {
+      await _repository.viderTousLesPaniersLocaux();
+      await chargerPaniers();
+      String message = 'Une erreur est survenue lors de la validation des commandes';
+      if (e is DioException && e.response?.data is Map<String, dynamic>) {
+        final data = e.response!.data as Map<String, dynamic>;
+        if (data['message'] != null) {
+          message = data['message'].toString();
+        }
+      } else {
+        message = e.toString();
+      }
+      state = state.copyWith(isValidating: false, error: message);
+      return createdOrders;
+    }
+  }
+
+  Future<void> synchroniserApresConnexion() async {
+    await _repository.synchroniserApresConnexion();
+    await chargerPaniers();
   }
 }
+
+final localPanierCountProvider = StateProvider<int>((ref) => 0);
 
 final panierStateProvider =
     StateNotifierProvider<PanierNotifier, PanierState>((ref) {
   final repo = ref.watch(panierRepositoryProvider);
   return PanierNotifier(repo, ref);
+});
+
+final panierCountProvider = Provider<int>((ref) {
+  return ref.watch(panierStateProvider).totalArticles;
 });

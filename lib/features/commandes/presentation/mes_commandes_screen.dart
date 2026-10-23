@@ -47,18 +47,19 @@ class _MesCommandesScreenState extends ConsumerState<MesCommandesScreen> {
   void initState() {
     super.initState();
     _selectedFilter = widget.initialFilter;
-    // Données statiques immédiates pour visualiser toutes les interfaces instantanément
-    _allCommandes = ref.read(commandeRepositoryProvider).getMockCommandesSync();
-    _isLoading = false;
+    _allCommandes = [];
+    _isLoading = true;
     _fetchCommandes();
   }
 
   Future<void> _fetchCommandes() async {
+    setState(() => _isLoading = true);
     final repo = ref.read(commandeRepositoryProvider);
     final list = await repo.getCommandes();
-    if (mounted && list.isNotEmpty) {
+    if (mounted) {
       setState(() {
         _allCommandes = list;
+        _isLoading = false;
       });
     }
   }

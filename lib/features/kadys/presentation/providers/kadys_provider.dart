@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mobile_hair_style/features/kadys/data/models/kadys_model.dart';
+import 'package:mobile_hair_style/features/kadys/data/models/kadys_commentaire_model.dart';
 import 'package:mobile_hair_style/features/kadys/data/kadys_repository.dart';
 
 class KadysFeedState {
@@ -73,3 +74,10 @@ final kadysFeedProvider =
   final repo = ref.watch(kadysRepositoryProvider);
   return KadysFeedNotifier(repo);
 });
+
+final kadysCommentsProvider =
+    FutureProvider.family<List<KadysCommentaireModel>, int>((ref, id) async {
+  final repo = ref.watch(kadysRepositoryProvider);
+  return await repo.getCommentaires(id);
+});
+

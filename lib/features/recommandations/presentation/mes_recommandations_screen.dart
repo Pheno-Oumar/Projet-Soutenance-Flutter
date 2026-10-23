@@ -204,6 +204,57 @@ class _MesRecommandationsScreenState
                     // ==============================================================
                     if (_tabController.index == 0) ...[
                       // SECTION PRODUITS DE LA ROUTINE
+                      if (reco == null) ...[
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkSurface : Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isDark ? AppColors.darkBorder : const Color(0xFFEAE2D8),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 56,
+                                height: 56,
+                                decoration: BoxDecoration(
+                                  color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF6EFE7),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 28,
+                                  color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+                              Text(
+                                'Aucune routine générée',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                  color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Complétez votre profil capillaire puis cliquez sur le bouton "Générer ma routine personnalisée" ci-dessus.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  height: 1.4,
+                                  color: isDark ? AppColors.darkTextSecondary : Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
                       if (reco != null && reco.produitLavage != null) ...[
                         RoutineProduitCard(
                           produit: reco.produitLavage!,

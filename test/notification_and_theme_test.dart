@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mobile_hair_style/core/theme/theme_provider.dart';
-import 'package:mobile_hair_style/features/notification/data/notification_mock_data.dart';
+import 'package:mobile_hair_style/features/notification/data/models/notification_model.dart';
 import 'package:mobile_hair_style/features/notification/presentation/providers/notification_provider.dart';
 
 void main() {
@@ -25,9 +25,48 @@ void main() {
   });
 
   group('Notification & Badge Tests', () {
+    const List<NotificationModel> testNotifications = [
+      NotificationModel(
+        id: 1,
+        titre: 'Rappel de rendez-vous demain',
+        contenu: 'Votre rdv est prévu demain à 14:30.',
+        type: 'RENDEZ_VOUS',
+        referenceMetier: 'RDV-2025-0145',
+        lu: false,
+        dateCreation: 'Il y a 25 minutes',
+      ),
+      NotificationModel(
+        id: 2,
+        titre: 'Acompte confirmé',
+        contenu: 'Votre acompte a été validé.',
+        type: 'PAIEMENT',
+        referenceMetier: 'PAY-2025-0891',
+        lu: true,
+        dateCreation: 'Hier à 16:42',
+      ),
+      NotificationModel(
+        id: 3,
+        titre: 'Réponse du Manager',
+        contenu: 'Le salon vous a répondu.',
+        type: 'RECLAMATION',
+        referenceMetier: 'REC-2025-0012',
+        lu: true,
+        dateCreation: '17 Septembre',
+      ),
+      NotificationModel(
+        id: 4,
+        titre: 'Nouveau protocole capillaire disponible',
+        contenu: 'Découvrez le soin.',
+        type: 'SERVICE',
+        referenceMetier: 'SRV-2025-0004',
+        lu: true,
+        dateCreation: '12 Septembre',
+      ),
+    ];
+
     test('NotificationListState correctly calculates unread and total counts', () {
-      final state = NotificationListState(
-        notifications: NotificationMockData.mockNotifications,
+      const state = NotificationListState(
+        notifications: testNotifications,
       );
 
       expect(state.totalCount, 4);
@@ -40,8 +79,8 @@ void main() {
     });
 
     test('Marking notification as read decrements unread count', () {
-      var state = NotificationListState(
-        notifications: NotificationMockData.mockNotifications,
+      var state = const NotificationListState(
+        notifications: testNotifications,
       );
 
       expect(state.unreadCount, 1);
@@ -58,8 +97,8 @@ void main() {
     });
 
     test('Marking all notifications as read sets all to true', () {
-      var state = NotificationListState(
-        notifications: NotificationMockData.mockNotifications,
+      var state = const NotificationListState(
+        notifications: testNotifications,
       );
 
       final updated = state.notifications.map((n) => n.copyWith(lu: true)).toList();

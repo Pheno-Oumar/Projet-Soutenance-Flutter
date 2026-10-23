@@ -13,6 +13,7 @@ class SalonModel {
   final bool statut;
   final double noteMoyenne;
   final int nombreAvis;
+  final double? distanceKm;
 
   const SalonModel({
     required this.id,
@@ -29,6 +30,7 @@ class SalonModel {
     this.statut = true,
     this.noteMoyenne = 4.8,
     this.nombreAvis = 12,
+    this.distanceKm,
   });
 
   factory SalonModel.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,7 @@ class SalonModel {
       statut: json['statut'] as bool? ?? true,
       noteMoyenne: (json['noteMoyenne'] as num?)?.toDouble() ?? 4.8,
       nombreAvis: json['nombreAvis'] as int? ?? 12,
+      distanceKm: (json['distanceKm'] as num?)?.toDouble(),
     );
   }
 }

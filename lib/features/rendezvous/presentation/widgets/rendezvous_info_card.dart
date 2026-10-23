@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../data/models/rendezvous_model.dart';
 
 class RendezVousInfoCard extends StatelessWidget {
@@ -21,12 +22,12 @@ class RendezVousInfoCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : const Color(0xFFFAF7F2),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFEFE9E0),
-          width: 1.0,
-        ),
+        border: context.symmetricBorder(),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsiveValue(compact: 12.0, standard: 16.0),
+        vertical: 14,
+      ),
       child: Column(
         children: [
           // Durée
@@ -36,14 +37,14 @@ class RendezVousInfoCard extends StatelessWidget {
               Text(
                 'Durée',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.fontSize(14),
                   color: labelColor,
                 ),
               ),
               Text(
                 rdv.formattedDuree,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.fontSize(14),
                   fontWeight: FontWeight.w700,
                   color: valueColor,
                 ),
@@ -62,14 +63,14 @@ class RendezVousInfoCard extends StatelessWidget {
               Text(
                 'Coiffeuse',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.fontSize(14),
                   color: labelColor,
                 ),
               ),
               Text(
                 rdv.coiffeurNomComplet,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.fontSize(14),
                   fontWeight: FontWeight.w700,
                   color: valueColor,
                 ),
@@ -88,14 +89,14 @@ class RendezVousInfoCard extends StatelessWidget {
               Text(
                 'Référence',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.fontSize(14),
                   color: labelColor,
                 ),
               ),
               Text(
                 rdv.referenceCode,
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: context.fontSize(14),
                   fontWeight: FontWeight.w700,
                   color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
                 ),

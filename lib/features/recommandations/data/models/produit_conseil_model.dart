@@ -13,6 +13,9 @@ class ProduitConseilModel {
   final List<String> texturesCibles;
   final bool actif;
   final int? scoreAffinite; // Calculé par le moteur Spring Boot (0 à 100)
+  final String? alternativeNaturelleNom;
+  final String? alternativeNaturelleIngredients;
+  final String? alternativeNaturelleRecette;
 
   const ProduitConseilModel({
     required this.id,
@@ -29,6 +32,9 @@ class ProduitConseilModel {
     this.texturesCibles = const [],
     this.actif = true,
     this.scoreAffinite,
+    this.alternativeNaturelleNom,
+    this.alternativeNaturelleIngredients,
+    this.alternativeNaturelleRecette,
   });
 
   String get etapeLabel {
@@ -85,6 +91,9 @@ class ProduitConseilModel {
       texturesCibles: parseList(json['texturesCibles']),
       actif: json['actif'] as bool? ?? true,
       scoreAffinite: score ?? (json['scoreAffinite'] is int ? json['scoreAffinite'] as int : null),
+      alternativeNaturelleNom: json['alternativeNaturelleNom'] as String?,
+      alternativeNaturelleIngredients: json['alternativeNaturelleIngredients'] as String?,
+      alternativeNaturelleRecette: json['alternativeNaturelleRecette'] as String?,
     );
   }
 
@@ -104,6 +113,9 @@ class ProduitConseilModel {
       'texturesCibles': texturesCibles,
       'actif': actif,
       'scoreAffinite': scoreAffinite,
+      'alternativeNaturelleNom': alternativeNaturelleNom,
+      'alternativeNaturelleIngredients': alternativeNaturelleIngredients,
+      'alternativeNaturelleRecette': alternativeNaturelleRecette,
     };
   }
 
@@ -122,6 +134,9 @@ class ProduitConseilModel {
     List<String>? texturesCibles,
     bool? actif,
     int? scoreAffinite,
+    String? alternativeNaturelleNom,
+    String? alternativeNaturelleIngredients,
+    String? alternativeNaturelleRecette,
   }) {
     return ProduitConseilModel(
       id: id ?? this.id,
@@ -138,6 +153,9 @@ class ProduitConseilModel {
       texturesCibles: texturesCibles ?? this.texturesCibles,
       actif: actif ?? this.actif,
       scoreAffinite: scoreAffinite ?? this.scoreAffinite,
+      alternativeNaturelleNom: alternativeNaturelleNom ?? this.alternativeNaturelleNom,
+      alternativeNaturelleIngredients: alternativeNaturelleIngredients ?? this.alternativeNaturelleIngredients,
+      alternativeNaturelleRecette: alternativeNaturelleRecette ?? this.alternativeNaturelleRecette,
     );
   }
 }

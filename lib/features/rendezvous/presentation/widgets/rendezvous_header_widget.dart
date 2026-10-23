@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../data/models/rendezvous_model.dart';
 
 class RendezVousHeaderWidget extends StatelessWidget {
@@ -12,7 +13,7 @@ class RendezVousHeaderWidget extends StatelessWidget {
     required this.onBackPressed,
   });
 
-  Widget _buildStatusBadge() {
+  Widget _buildStatusBadge(BuildContext context) {
     Color bgColor;
     Color textColor;
     String label;
@@ -36,7 +37,10 @@ class RendezVousHeaderWidget extends StatelessWidget {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: EdgeInsets.symmetric(
+        horizontal: context.responsiveValue(compact: 10.0, standard: 14.0),
+        vertical: 6,
+      ),
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
@@ -52,7 +56,7 @@ class RendezVousHeaderWidget extends StatelessWidget {
         label,
         style: TextStyle(
           color: textColor,
-          fontSize: 12,
+          fontSize: context.fontSize(12),
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -65,10 +69,16 @@ class RendezVousHeaderWidget extends StatelessWidget {
     final logoPath = rdv.salonLogo ?? 'assets/images/rdv_tous_0.png';
     final salonName = rdv.salonNom ?? 'Salon Beauty';
     final location = rdv.salonAdresse ?? 'Dakar, Almadies';
-    final dateStr = rdv.dateHeurePrevue ?? '15/04/2025 • 10:00';
+    final dateStr = rdv.dateHeureFormatee;
+    final headerHeight = context.responsiveValue<double>(
+      compact: 240,
+      standard: 260,
+      large: 280,
+    );
+    final logoSize = context.responsiveValue(compact: 50.0, standard: 58.0);
 
     return SizedBox(
-      height: 260,
+      height: headerHeight,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
@@ -143,11 +153,11 @@ class RendezVousHeaderWidget extends StatelessWidget {
                     ),
 
                     // Titre au centre de la barre
-                    const Text(
+                    Text(
                       'Détails du rendez-vous',
                       style: TextStyle(
                         color: Colors.white,
-                        fontSize: 16,
+                        fontSize: context.fontSize(16),
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -170,8 +180,8 @@ class RendezVousHeaderWidget extends StatelessWidget {
               children: [
                 // Logo circulaire avec bordure blanche
                 Container(
-                  width: 58,
-                  height: 58,
+                  width: logoSize,
+                  height: logoSize,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.white, width: 2.0),
@@ -213,15 +223,18 @@ class RendezVousHeaderWidget extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        salonName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          salonName,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: context.fontSize(17),
+                            fontWeight: FontWeight.w800,
+                          ),
+                          maxLines: 1,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 3),
                       Row(
@@ -235,9 +248,9 @@ class RendezVousHeaderWidget extends StatelessWidget {
                           Expanded(
                             child: Text(
                               location,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: Colors.white70,
-                                fontSize: 12,
+                                fontSize: context.fontSize(12),
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -253,12 +266,16 @@ class RendezVousHeaderWidget extends StatelessWidget {
                             size: 13,
                           ),
                           const SizedBox(width: 4),
-                          Text(
-                            dateStr,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                          Expanded(
+                            child: Text(
+                              dateStr,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: context.fontSize(12),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -269,7 +286,7 @@ class RendezVousHeaderWidget extends StatelessWidget {
                 const SizedBox(width: 8),
 
                 // Statut du rendez-vous
-                _buildStatusBadge(),
+                _buildStatusBadge(context),
               ],
             ),
           ),

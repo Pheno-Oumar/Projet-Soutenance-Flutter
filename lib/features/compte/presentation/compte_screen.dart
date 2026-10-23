@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../routing/route_names.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 import '../../notification/presentation/providers/notification_provider.dart';
@@ -12,15 +13,26 @@ class CompteScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authStateProvider);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Si non connecté, afficher la vue d'accueil invité
+    if (!authState.isAuthenticated) {
+      return _buildGuestView(context, isDark);
+    }
+
     final profileAsync = ref.watch(clientProfileProvider);
     final profile = profileAsync.valueOrNull;
     final unreadNotifs = ref.watch(unreadNotificationCountProvider);
 
     final userName = (profile != null && profile.prenom.isNotEmpty)
         ? '${profile.prenom} ${profile.nom}'
-        : 'Aïcha Diallo';
-    final userEmail = profile?.email ?? 'aicha.diallo@gmail.com';
-    final userPhone = profile?.telephone ?? '+221 77 123 45 67';
+        : (authState.user?.prenom != null && authState.user!.prenom!.isNotEmpty
+            ? '${authState.user!.prenom} ${authState.user?.nom ?? ''}'
+            : 'Client Mon Salon');
+
+    final userEmail = profile?.email ?? authState.user?.email ?? 'Non renseigné';
+    final userPhone = profile?.telephone ?? authState.user?.telephone ?? '';
 
     final menuItems = [
       {
@@ -50,15 +62,8 @@ class CompteScreen extends ConsumerWidget {
       },
       {
         'title': 'Mes avis',
-        'icon': Icons.star_outline_rounded, // Icône ajustée
-        'action': () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Vos avis et évaluations'),
-              duration: Duration(seconds: 1),
-            ),
-          );
-        },
+        'icon': Icons.star_outline_rounded,
+        'action': () => _showAvisModal(context, ref),
       },
       {
         'title': 'Mes réclamations',
@@ -84,13 +89,18 @@ class CompteScreen extends ConsumerWidget {
       },
     ];
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final avatarSize = context.responsiveValue(compact: 74.0, standard: 82.0);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: EdgeInsets.only(
+          left: 18,
+          right: 18,
+          top: 16,
+          bottom: context.responsiveValue(compact: 70.0, standard: 80.0),
+        ),
         child: Column(
           children: [
             // ==============================================================
@@ -104,8 +114,8 @@ class CompteScreen extends ConsumerWidget {
                   alignment: Alignment.bottomRight,
                   children: [
                     Container(
-                      width: 82,
-                      height: 82,
+                      width: avatarSize,
+                      height: avatarSize,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
@@ -120,11 +130,11 @@ class CompteScreen extends ConsumerWidget {
                           errorBuilder: (_, _, _) => Container(
                             color: const Color(0xFF2E1C15),
                             alignment: Alignment.center,
-                            child: const Text(
+                            child: Text(
                               'AD',
                               style: TextStyle(
                                 color: AppColors.figmaActiveGold,
-                                fontSize: 24,
+                                fontSize: context.fontSize(24),
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -171,21 +181,24 @@ class CompteScreen extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        userName,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          userName,
+                          style: TextStyle(
+                            fontSize: context.fontSize(18),
+                            fontWeight: FontWeight.w800,
+                            color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                          ),
+                          maxLines: 1,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         userEmail,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: context.fontSize(13),
                           color: isDark ? AppColors.darkTextSecondary : const Color(0xFF6B7280),
                           fontWeight: FontWeight.w400,
                         ),
@@ -196,10 +209,12 @@ class CompteScreen extends ConsumerWidget {
                       Text(
                         userPhone,
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: context.fontSize(13),
                           color: isDark ? AppColors.darkTextSecondary : const Color(0xFF6B7280),
                           fontWeight: FontWeight.w400,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -236,7 +251,7 @@ class CompteScreen extends ConsumerWidget {
                               child: Text(
                                 item['title'] as String,
                                 style: TextStyle(
-                                  fontSize: 14.5,
+                                  fontSize: context.fontSize(14.5),
                                   fontWeight: FontWeight.w600,
                                   color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1F2937),
                                 ),
@@ -253,9 +268,9 @@ class CompteScreen extends ConsumerWidget {
                                 ),
                                 child: Text(
                                   '${item['badge']}',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: Colors.white,
-                                    fontSize: 11,
+                                    fontSize: context.fontSize(11),
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
@@ -308,9 +323,8 @@ class CompteScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.darkSurface : Colors.transparent,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: isDark ? const Color(0xFFD32F2F).withValues(alpha: 0.7) : AppColors.figmaBrown,
-                    width: 1.2,
+                  border: context.symmetricBorder(
+                    borderColor: isDark ? const Color(0xFFD32F2F).withValues(alpha: 0.7) : AppColors.figmaBrown,
                   ),
                 ),
                 child: Row(
@@ -322,12 +336,15 @@ class CompteScreen extends ConsumerWidget {
                       size: 20,
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      'Se déconnecter',
-                      style: TextStyle(
-                        color: isDark ? const Color(0xFFEF5350) : AppColors.figmaBrown,
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        'Se déconnecter',
+                        style: TextStyle(
+                          color: isDark ? const Color(0xFFEF5350) : AppColors.figmaBrown,
+                          fontSize: context.fontSize(14.5),
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                   ],
@@ -341,4 +358,291 @@ class CompteScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _buildGuestView(BuildContext context, bool isDark) {
+    return Scaffold(
+      backgroundColor: isDark ? AppColors.darkBackground : const Color(0xFFFDFBF9),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.symmetric(
+          horizontal: 20,
+          vertical: context.responsiveValue(compact: 20.0, standard: 30.0),
+        ),
+        child: Column(
+          children: [
+            // Avatar décoratif
+            Container(
+              width: context.responsiveValue(compact: 76.0, standard: 88.0),
+              height: context.responsiveValue(compact: 76.0, standard: 88.0),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF6EFE7),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.figmaActiveGold,
+                  width: 2.0,
+                ),
+              ),
+              child: Icon(
+                Icons.person_outline_rounded,
+                size: context.responsiveValue(compact: 42.0, standard: 48.0),
+                color: AppColors.figmaActiveGold,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Titre & description
+            Text(
+              'Bienvenue sur Mon Salon',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.fontSize(20),
+                fontWeight: FontWeight.w800,
+                color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Connectez-vous pour retrouver vos réservations de rendez-vous, vos commandes Click & Collect et synchroniser vos favoris.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.fontSize(13.5),
+                color: isDark ? AppColors.darkTextSecondary : Colors.black54,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            // Bouton Principal "Se connecter"
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () => context.push(RouteNames.login),
+                icon: const Icon(Icons.login_rounded, size: 19),
+                label: Text(
+                  'Se connecter',
+                  style: TextStyle(
+                    fontSize: context.fontSize(15),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.figmaBrown,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Bouton Secondaire "Créer un compte"
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () => context.push(RouteNames.register),
+                icon: const Icon(Icons.person_add_outlined, size: 19),
+                label: Text(
+                  'Créer un compte',
+                  style: TextStyle(
+                    fontSize: context.fontSize(15),
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? AppColors.darkTextPrimary : AppColors.figmaBrown,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: isDark ? AppColors.darkTextPrimary : AppColors.figmaBrown,
+                  side: BorderSide(
+                    color: isDark ? AppColors.darkBorder : AppColors.figmaBrown,
+                    width: 1.2,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 32),
+
+            // Section raccourcis accessibles en mode invité
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: context.symmetricBorder(),
+              ),
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: const Icon(Icons.favorite_border_rounded, color: AppColors.figmaActiveGold, size: 22),
+                    title: Text(
+                      'Mes favoris',
+                      style: TextStyle(
+                        fontSize: context.fontSize(14),
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Sauvegardés sur cet appareil',
+                      style: TextStyle(
+                        fontSize: context.fontSize(12),
+                        color: isDark ? AppColors.darkTextSecondary : Colors.grey[600],
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                    onTap: () => context.push(RouteNames.mesFavoris),
+                  ),
+                  Divider(
+                    height: 1,
+                    indent: 52,
+                    color: isDark ? AppColors.darkDivider : const Color(0xFFF0EAE1),
+                  ),
+                  ListTile(
+                    leading: Icon(
+                      Icons.settings_outlined,
+                      color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                      size: 22,
+                    ),
+                    title: Text(
+                      'Paramètres de l\'application',
+                      style: TextStyle(
+                        fontSize: context.fontSize(14),
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+                      ),
+                    ),
+                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                    onTap: () => context.push(RouteNames.parametres),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAvisModal(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: context.heightPercent(0.65, min: 380.0, max: 560.0),
+          decoration: BoxDecoration(
+            color: isDark ? AppColors.darkSurface : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+            border: Border(
+              top: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
+                width: 1.0,
+              ),
+            ),
+          ),
+          child: Column(
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 42,
+                height: 4.5,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.white24 : Colors.black26,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Mes avis & Évaluations',
+                      style: TextStyle(
+                        fontSize: context.fontSize(16),
+                        fontWeight: FontWeight.w800,
+                        color: context.adaptiveTextColor(),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      color: context.adaptiveSubtextColor(),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(
+                color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
+                thickness: 0.8,
+              ),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.rate_review_outlined,
+                          color: AppColors.figmaActiveGold,
+                          size: 48,
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          'Aucun avis publié pour l\'instant',
+                          style: TextStyle(
+                            fontSize: context.fontSize(15),
+                            fontWeight: FontWeight.w800,
+                            color: context.adaptiveTextColor(),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Après avoir réalisé un rendez-vous dans un salon partenaire ou commandé un produit, vous pourrez déposer vos notes et commentaires certifiés ici.',
+                          style: TextStyle(
+                            fontSize: context.fontSize(12.5),
+                            color: context.adaptiveSubtextColor(),
+                            height: 1.4,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.of(ctx).pop();
+                            context.push(RouteNames.salons);
+                          },
+                          icon: const Icon(Icons.search_rounded, size: 16),
+                          label: const Text('Explorer les salons'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.figmaBrown,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
+

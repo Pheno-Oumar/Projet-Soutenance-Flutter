@@ -95,32 +95,29 @@ class MesRendezVousNotifier extends StateNotifier<MesRendezVousState> {
   final RendezVousRepository _repository;
 
   MesRendezVousNotifier(this._repository)
-      : super(MesRendezVousState(
-          isLoading: false,
-          allRendezVous: RendezVousMockData.mockRendezVous,
+      : super(const MesRendezVousState(
+          isLoading: true,
+          allRendezVous: [],
         )) {
     chargerRendezVous();
   }
 
   Future<void> chargerRendezVous() async {
+    state = state.copyWith(isLoading: true, error: null);
     try {
-      final page = await _repository.listerMesRendezVous();
-      if (page.content.isNotEmpty) {
-        state = state.copyWith(
-          isLoading: false,
-          allRendezVous: page.content,
-        );
-      } else {
-        // En l'absence de données backend, conserver les données de test mock
-        state = state.copyWith(
-          isLoading: false,
-          allRendezVous: RendezVousMockData.mockRendezVous,
-        );
-      }
-    } catch (_) {
+      final page = await _repository.listerMesRendezVous(
+        slugSalon: state.selectedSalonSlug,
+        statut: state.selectedStatutTab,
+      );
       state = state.copyWith(
         isLoading: false,
-        allRendezVous: RendezVousMockData.mockRendezVous,
+        allRendezVous: page.content,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        allRendezVous: const [],
+        error: e.toString(),
       );
     }
   }
@@ -138,9 +135,12 @@ class MesRendezVousNotifier extends StateNotifier<MesRendezVousState> {
   }
 
   Future<void> annuler(int id, {String raison = 'Annulé par le client'}) async {
+    final rdv = state.allRendezVous.firstWhere(
+      (r) => r.id == id,
+      orElse: () => RendezVousModel(id: id),
+    );
     try {
-      await _repository.annulerRendezVous(id, raison: raison);
-      // Mettre à jour l'élément localement
+      await _repository.annulerRendezVous(id, raison: raison, slugSalon: rdv.salonSlug);
       final updatedList = state.allRendezVous.map((r) {
         if (r.id == id) {
           return r.copyWith(

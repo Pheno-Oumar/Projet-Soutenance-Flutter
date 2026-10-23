@@ -103,6 +103,22 @@ class PrestationModel {
     return statut;
   }
 
+  String get dateHeureDebutFormatee {
+    if (dateHeureDebut.isEmpty) return 'Date non définie';
+    if (dateHeureDebut.contains('•')) return dateHeureDebut;
+    try {
+      final dt = DateTime.parse(dateHeureDebut);
+      final j = dt.day.toString().padLeft(2, '0');
+      final m = dt.month.toString().padLeft(2, '0');
+      final a = dt.year;
+      final h = dt.hour.toString().padLeft(2, '0');
+      final min = dt.minute.toString().padLeft(2, '0');
+      return '$j/$m/$a • $h:$min';
+    } catch (_) {
+      return dateHeureDebut;
+    }
+  }
+
   bool get hasMultipleVariants => lignes.length > 1;
 
   int get variantsCount => lignes.length;

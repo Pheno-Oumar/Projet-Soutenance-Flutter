@@ -3,7 +3,6 @@ import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_response.dart';
 import 'models/rendezvous_model.dart';
-import 'rendezvous_mock_data.dart';
 
 final rendezVousRepositoryProvider = Provider<RendezVousRepository>((ref) {
   final apiClient = ref.watch(apiClientProvider);
@@ -12,87 +11,104 @@ final rendezVousRepositoryProvider = Provider<RendezVousRepository>((ref) {
 
 class RendezVousRepository {
   final ApiClient _apiClient;
-  List<RendezVousModel> _localRendezVous = List.from(RendezVousMockData.mockRendezVous);
 
   RendezVousRepository(this._apiClient);
 
   Future<PageResponse<RendezVousModel>> listerMesRendezVous({
     int page = 0,
     int size = 15,
+    String? slugSalon,
+    String? statut,
   }) async {
     try {
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'size': size,
+      };
+      if (slugSalon != null && slugSalon.isNotEmpty) {
+        queryParams['slugSalon'] = slugSalon;
+      }
+      if (statut != null && statut.isNotEmpty && statut != 'TOUT') {
+        queryParams['statut'] = statut;
+      }
+
       final response = await _apiClient.get(
         ApiEndpoints.clientRendezVous,
-        queryParameters: {'page': page, 'size': size},
+        queryParameters: queryParams,
       );
 
-      final apiResp = ApiResponse<Map<String, dynamic>>.fromJson(
-        response.data as Map<String, dynamic>,
-        (data) => data as Map<String, dynamic>,
-      );
+      final raw = response.data;
+      List<dynamic> items = [];
 
-      if (apiResp.data != null) {
-        final parsed = PageResponse<RendezVousModel>.fromJson(
-          apiResp.data!,
-          (item) => RendezVousModel.fromJson(item),
-        );
-        if (parsed.content.isNotEmpty) {
-          return parsed;
+      if (raw is Map<String, dynamic>) {
+        final dataField = raw['data'];
+        if (dataField is List) {
+          items = dataField;
+        } else if (dataField is Map<String, dynamic> && dataField['content'] is List) {
+          items = dataField['content'] as List;
         }
+      } else if (raw is List) {
+        items = raw;
       }
-    } catch (_) {
-      // API non connectée ou hors ligne -> fallback mock data
-    }
 
-    return PageResponse<RendezVousModel>(
-      content: _localRendezVous,
-      totalElements: _localRendezVous.length,
-      totalPages: 1,
-      size: size,
-      number: page,
-    );
+      final list = items
+          .map((item) => RendezVousModel.fromJson(item as Map<String, dynamic>))
+          .toList();
+
+      return PageResponse<RendezVousModel>(
+        content: list,
+        totalElements: list.length,
+        totalPages: 1,
+        size: size,
+        number: page,
+      );
+    } catch (_) {
+      // Retourner une page vide au lieu de données statiques
+      return PageResponse<RendezVousModel>(
+        content: const [],
+        totalElements: 0,
+        totalPages: 0,
+        size: size,
+        number: page,
+      );
+    }
   }
 
   Future<RendezVousModel> getRendezVousDetail(int id) async {
-    try {
-      final response = await _apiClient.get(
-        ApiEndpoints.clientRendezVousDetail(id),
-      );
-
-      final apiResp = ApiResponse<Map<String, dynamic>>.fromJson(
-        response.data as Map<String, dynamic>,
-        (data) => data as Map<String, dynamic>,
-      );
-
-      if (apiResp.data != null) {
-        return RendezVousModel.fromJson(apiResp.data!);
-      }
-    } catch (_) {}
-
-    final found = _localRendezVous.firstWhere(
-      (r) => r.id == id,
-      orElse: () => _localRendezVous.first,
+    final response = await _apiClient.get(
+      ApiEndpoints.clientRendezVousDetail(id),
     );
-    return found;
+
+    final raw = response.data;
+    if (raw is Map<String, dynamic>) {
+      final dataField = raw['data'];
+      if (dataField is Map<String, dynamic>) {
+        return RendezVousModel.fromJson(dataField);
+      }
+    }
+    throw Exception('Détail du rendez-vous introuvable');
   }
 
-  Future<void> annulerRendezVous(int id, {String raison = 'Annulé par le client'}) async {
-    try {
-      await _apiClient.post(
-        ApiEndpoints.clientRendezVousAnnuler(id),
-        data: {'motif': raison},
-      );
-    } catch (_) {}
+  Future<void> annulerRendezVous(
+    int id, {
+    String raison = 'Annulé par le client',
+    String? slugSalon,
+  }) async {
+    final payload = {'motif': raison};
 
-    // Mettre à jour le statut en local pour le retour instantané dans l'UI
-    _localRendezVous = _localRendezVous.map((r) {
-      if (r.id == id) {
-        return r.copyWith(
-          statut: 'ANNULE',
-          motif: raison,
+    if (slugSalon != null && slugSalon.isNotEmpty) {
+      try {
+        await _apiClient.post(
+          '/$slugSalon/client/rendez-vous/$id/annuler',
+          data: payload,
         );
-      }
-      return r;
-    }).toList();
+        return;
+      } catch (_) {}
+    }
+
+    await _apiClient.post(
+      ApiEndpoints.clientRendezVousAnnuler(id),
+      data: payload,
+    );
   }
 }

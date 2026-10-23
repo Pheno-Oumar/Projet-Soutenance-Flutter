@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/reclamation_model.dart';
-import '../../data/reclamation_mock_data.dart';
 import '../../data/reclamation_repository.dart';
 import 'package:mobile_hair_style/features/rendezvous/data/rendezvous_mock_data.dart' show SalonItem;
 
@@ -97,31 +96,26 @@ class MesReclamationsNotifier extends StateNotifier<MesReclamationsState> {
   final ReclamationRepository _repository;
 
   MesReclamationsNotifier(this._repository)
-      : super(MesReclamationsState(
-          isLoading: false,
-          allReclamations: ReclamationMockData.mockReclamations,
+      : super(const MesReclamationsState(
+          isLoading: true,
+          allReclamations: [],
         )) {
     chargerReclamations();
   }
 
   Future<void> chargerReclamations() async {
+    state = state.copyWith(isLoading: true, error: null);
     try {
       final list = await _repository.listerMesReclamations();
-      if (list.isNotEmpty) {
-        state = state.copyWith(
-          isLoading: false,
-          allReclamations: list,
-        );
-      } else {
-        state = state.copyWith(
-          isLoading: false,
-          allReclamations: ReclamationMockData.mockReclamations,
-        );
-      }
-    } catch (_) {
       state = state.copyWith(
         isLoading: false,
-        allReclamations: ReclamationMockData.mockReclamations,
+        allReclamations: list,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        allReclamations: const [],
+        error: e.toString(),
       );
     }
   }

@@ -102,13 +102,14 @@ class CommandeModel {
         .map((e) => LigneCommandeModel.fromJson(e as Map<String, dynamic>))
         .toList();
 
-    final total = (json['montantTotal'] as num?)?.toDouble() ?? 25000.0;
-    const frais = 2500.0;
+    final total = (json['montantTotal'] as num?)?.toDouble() ?? 0.0;
+    final frais = (json['fraisLivraison'] as num?)?.toDouble() ?? 0.0;
     final sousTot = (total - frais > 0) ? (total - frais) : total;
 
     return CommandeModel(
       id: (json['id'] as num?)?.toInt() ?? 0,
-      numeroCommande: json['numeroCommande'] as String? ?? '#COM-2026-0048',
+      numeroCommande: json['numeroCommande'] as String? ??
+          (json['id'] != null ? '#COM-2026-${json['id'].toString().padLeft(4, '0')}' : ''),
       dateCommande: json['dateCommande'] != null
           ? DateTime.tryParse(json['dateCommande'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -116,11 +117,10 @@ class CommandeModel {
       montantTotal: total,
       sousTotal: sousTot,
       fraisLivraison: frais,
-      modePaiement: json['modePaiement'] as String? ?? 'Wave',
-      clientNom: json['clientNom'] as String? ?? 'Aïcha Diallo',
-      clientTelephone: json['clientTelephone'] as String? ?? '+221 77 123 45 67',
-      adresseLivraison: json['adresseLivraison'] as String? ??
-          'Almadies, près de la pharmacie du rond-point',
+      modePaiement: json['modePaiement'] as String? ?? 'Paiement à la livraison',
+      clientNom: json['clientNom'] as String? ?? '',
+      clientTelephone: json['clientTelephone'] as String? ?? '',
+      adresseLivraison: json['adresseLivraison'] as String? ?? '',
       codeRetrait: json['codeRetrait'] as String?,
       motifRejet: json['motifRejet'] as String?,
       traiteParNom: json['traiteParNom'] as String?,

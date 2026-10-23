@@ -19,9 +19,29 @@ class NotificationModel {
     this.dateLecture,
   });
 
+  String get dateCreationFormatee {
+    if (dateCreation == null || dateCreation!.isEmpty) return 'Récemment';
+    if (dateCreation!.contains('T')) {
+      try {
+        final dt = DateTime.parse(dateCreation!);
+        final now = DateTime.now();
+        final diff = now.difference(dt);
+        if (diff.inMinutes < 60) {
+          final m = diff.inMinutes;
+          return m <= 1 ? 'À l\'instant' : 'Il y a $m min';
+        } else if (diff.inHours < 24) {
+          return 'Il y a ${diff.inHours} h';
+        } else {
+          return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+        }
+      } catch (_) {}
+    }
+    return dateCreation!;
+  }
+
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
-      id: json['id'] as int? ?? 0,
+      id: (json['id'] as num?)?.toInt() ?? 0,
       titre: json['titre'] as String? ?? '',
       contenu: json['contenu'] as String? ?? '',
       type: json['type'] as String?,

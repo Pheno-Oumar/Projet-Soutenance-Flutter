@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import 'package:mobile_hair_style/features/salon/presentation/providers/salon_provider.dart';
 import 'package:mobile_hair_style/features/rendezvous/data/rendezvous_mock_data.dart' show SalonItem;
 import 'providers/reclamation_provider.dart';
 
@@ -16,38 +17,11 @@ class _NouvelleReclamationScreenState extends ConsumerState<NouvelleReclamationS
   final _objetController = TextEditingController();
   final _descriptionController = TextEditingController();
 
-  final List<SalonItem> _salons = const [
-    SalonItem(
-      slug: 'salon-beauty',
-      nom: 'Salon Beauty',
-      adresse: 'Dakar, Almadies',
-      logo: 'assets/images/rdv_tous_0.png',
-    ),
-    SalonItem(
-      slug: 'beauty-by-dika',
-      nom: 'Beauty By Dika',
-      adresse: 'Bamako, Kalaban',
-      logo: 'assets/images/detail_img_1.jpg',
-    ),
-    SalonItem(
-      slug: 'mathy-hair',
-      nom: 'Mathy Hair',
-      adresse: 'Dakar, Mermoz',
-      logo: 'assets/images/salons_img_1.jpg',
-    ),
-  ];
-
-  late SalonItem _selectedSalon;
+  SalonItem? _selectedSalon;
   String _selectedType = 'Service';
   bool _hasAttachment = false;
 
   final List<String> _types = const ['Produit', 'Service', 'Salon', 'Paiement'];
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedSalon = _salons.first;
-  }
 
   @override
   void dispose() {
@@ -56,7 +30,17 @@ class _NouvelleReclamationScreenState extends ConsumerState<NouvelleReclamationS
     super.dispose();
   }
 
-  Future<void> _soumettre() async {
+  Future<void> _soumettre(SalonItem? salon) async {
+    if (salon == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Veuillez sélectionner un salon.'),
+          backgroundColor: Color(0xFFD32F2F),
+        ),
+      );
+      return;
+    }
+
     final objet = _objetController.text.trim();
     final description = _descriptionController.text.trim();
 
@@ -71,10 +55,10 @@ class _NouvelleReclamationScreenState extends ConsumerState<NouvelleReclamationS
     }
 
     await ref.read(mesReclamationsProvider.notifier).ajouterReclamation(
-          salonSlug: _selectedSalon.slug,
-          salonNom: _selectedSalon.nom,
-          salonAdresse: _selectedSalon.adresse,
-          salonLogo: _selectedSalon.logo,
+          salonSlug: salon.slug,
+          salonNom: salon.nom,
+          salonAdresse: salon.adresse,
+          salonLogo: salon.logo,
           type: _selectedType.toUpperCase(),
           objet: objet.isNotEmpty ? objet : 'Réclamation sur ${_selectedType.toLowerCase()}',
           description: description,
@@ -94,6 +78,17 @@ class _NouvelleReclamationScreenState extends ConsumerState<NouvelleReclamationS
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final salonsState = ref.watch(salonsListProvider);
+    final salons = salonsState.salons.map((s) => SalonItem(
+      slug: s.slug,
+      nom: s.nom,
+      adresse: s.adresse ?? 'Dakar, Sénégal',
+      logo: s.logoUrl ?? s.coverUrl ?? 'assets/images/rdv_tous_0.png',
+    )).toList();
+
+    final currentSalon = (_selectedSalon != null && salons.any((s) => s.slug == _selectedSalon!.slug))
+        ? salons.firstWhere((s) => s.slug == _selectedSalon!.slug)
+        : (salons.isNotEmpty ? salons.first : null);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
@@ -141,33 +136,44 @@ class _NouvelleReclamationScreenState extends ConsumerState<NouvelleReclamationS
                   width: 1.0,
                 ),
               ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<SalonItem>(
-                  value: _selectedSalon,
-                  isExpanded: true,
-                  dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
-                  icon: Icon(
-                    Icons.keyboard_arrow_down_rounded,
-                    color: isDark ? AppColors.darkTextSecondary : const Color(0xFF5B3926),
-                  ),
-                  items: _salons.map((s) {
-                    return DropdownMenuItem<SalonItem>(
-                      value: s,
+              child: salons.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       child: Text(
-                        '${s.nom} (${s.adresse})',
+                        salonsState.isLoading ? 'Chargement des salons...' : 'Aucun salon disponible',
                         style: TextStyle(
+                          color: isDark ? AppColors.darkTextSecondary : Colors.grey[600],
                           fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                         ),
                       ),
-                    );
-                  }).toList(),
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedSalon = val);
-                  },
-                ),
-              ),
+                    )
+                  : DropdownButtonHideUnderline(
+                      child: DropdownButton<SalonItem>(
+                        value: currentSalon,
+                        isExpanded: true,
+                        dropdownColor: isDark ? AppColors.darkSurface : Colors.white,
+                        icon: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          color: isDark ? AppColors.darkTextSecondary : const Color(0xFF5B3926),
+                        ),
+                        items: salons.map((s) {
+                          return DropdownMenuItem<SalonItem>(
+                            value: s,
+                            child: Text(
+                              '${s.nom} (${s.adresse})',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedSalon = val);
+                        },
+                      ),
+                    ),
             ),
             const SizedBox(height: 22),
 
@@ -360,7 +366,7 @@ class _NouvelleReclamationScreenState extends ConsumerState<NouvelleReclamationS
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: _soumettre,
+                onPressed: () => _soumettre(currentSalon),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.figmaBrown,
                   foregroundColor: Colors.white,

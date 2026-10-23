@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
+import '../../compte/presentation/providers/favoris_provider.dart';
 import 'providers/salon_provider.dart';
 import 'widgets/salon_apropos_tab.dart';
 import 'widgets/salon_coiffeurs_tab.dart';
@@ -29,7 +31,6 @@ class SalonDetailScreen extends ConsumerStatefulWidget {
 class _SalonDetailScreenState extends ConsumerState<SalonDetailScreen> {
   // Onglet actif : 0 = A propos, 1 = Services, 2 = Réalisations, 3 = Produits, 4 = Coiffeurs
   late int _activeTabIndex;
-  bool _isFavorite = false;
 
   @override
   void initState() {
@@ -54,6 +55,16 @@ class _SalonDetailScreenState extends ConsumerState<SalonDetailScreen> {
 
     final salonName = salon?.nom ?? 'Beauty By Dika';
     final locationText = salon?.adresse ?? 'Bamako, Kalaban';
+    final coverImage = (salon?.coverUrl != null && salon!.coverUrl!.isNotEmpty)
+        ? salon.coverUrl!
+        : 'assets/images/detail_img_0.jpg';
+    final logoImage = salon?.logoUrl ?? '';
+    final rating = (salon?.noteMoyenne ?? 4.8).toStringAsFixed(1);
+    final reviewsCount = '${salon?.nombreAvis ?? 12} avis';
+    final status = (salon?.statut ?? true) ? 'Ouvert' : 'Fermé';
+    final initials = (salon != null && salon.nom.isNotEmpty)
+        ? salon.nom.substring(0, salon.nom.length >= 2 ? 2 : 1).toUpperCase()
+        : 'BD';
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
@@ -67,11 +78,15 @@ class _SalonDetailScreenState extends ConsumerState<SalonDetailScreen> {
             SalonHeaderWidget(
               salonName: salonName,
               location: locationText,
-              isFavorite: _isFavorite,
+              coverImage: coverImage,
+              logoImage: logoImage,
+              rating: rating,
+              reviewsCount: reviewsCount,
+              status: status,
+              initials: initials,
+              isFavorite: ref.watch(favorisProvider).isSalonFav(widget.slug),
               onFavoriteToggle: () {
-                setState(() {
-                  _isFavorite = !_isFavorite;
-                });
+                ref.read(favorisProvider.notifier).toggleSalon(widget.slug);
               },
               onBackPressed: () => context.pop(),
             ),
@@ -107,20 +122,20 @@ class _SalonDetailScreenState extends ConsumerState<SalonDetailScreen> {
                               ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
                               : (isDark ? AppColors.darkSurface : Colors.white),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isActive
-                                ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
-                                : (isDark ? AppColors.darkBorder : const Color(0xFFE0E4EB)),
-                            width: 1.0,
-                          ),
+                          border: isActive
+                              ? Border.all(
+                                  color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                                  width: 1.0,
+                                )
+                              : context.symmetricBorder(),
                         ),
                         child: Text(
                           _tabs[index],
                           style: TextStyle(
                             color: isActive
                                 ? Colors.white
-                                : (isDark ? AppColors.darkTextPrimary : Colors.black87),
-                            fontSize: 13,
+                                : context.adaptiveTextColor(),
+                            fontSize: context.fontSize(13),
                             fontWeight:
                                 isActive ? FontWeight.w700 : FontWeight.w500,
                           ),
@@ -142,7 +157,7 @@ class _SalonDetailScreenState extends ConsumerState<SalonDetailScreen> {
               child: _buildTabContent(salonName),
             ),
 
-            const SizedBox(height: 32),
+            SizedBox(height: context.responsiveValue(compact: 70, standard: 80)),
           ],
         ),
       ),
@@ -153,15 +168,15 @@ class _SalonDetailScreenState extends ConsumerState<SalonDetailScreen> {
   Widget _buildTabContent(String salonName) {
     switch (_activeTabIndex) {
       case 0:
-        return const SalonAproposTab();
+        return SalonAproposTab(slugSalon: widget.slug, salonNom: salonName);
       case 1:
-        return const SalonServicesTab();
+        return SalonServicesTab(slugSalon: widget.slug, salonNom: salonName);
       case 2:
-        return SalonRealisationsTab(salonName: salonName);
+        return SalonRealisationsTab(slugSalon: widget.slug, salonName: salonName);
       case 3:
-        return const SalonProduitsTab();
+        return SalonProduitsTab(slugSalon: widget.slug, salonNom: salonName);
       case 4:
-        return const SalonCoiffeursTab();
+        return SalonCoiffeursTab(slugSalon: widget.slug, salonNom: salonName);
       default:
         return const SizedBox.shrink();
     }

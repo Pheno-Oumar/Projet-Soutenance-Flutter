@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme/app_colors.dart';
+import '../core/utils/responsive.dart';
 import '../features/notification/presentation/providers/notification_provider.dart';
 import '../features/panier/presentation/providers/panier_provider.dart';
+import '../features/rendezvous/presentation/providers/rendezvous_panier_provider.dart';
 import 'route_names.dart';
 
 class NavigationShell extends ConsumerWidget {
@@ -33,6 +35,7 @@ class NavigationShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cartCount = ref.watch(panierCountProvider);
+    final rdvCount = ref.watch(rdvPanierCountProvider);
     final unreadNotifs = ref.watch(unreadNotificationCountProvider);
     final isKadysTab = navigationShell.currentIndex == 2;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -65,16 +68,22 @@ class NavigationShell extends ConsumerWidget {
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // B. MILIEU : Titre dynamique PARFAITEMENT AU CENTRE DE L'ÉCRAN
-                    Center(
-                      child: Text(
-                        _getTitleForCurrentTab(navigationShell.currentIndex),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.5,
+                    // B. MILIEU : Titre dynamique PARFAITEMENT AU CENTRE DE L'ÉCRAN SANS COLLISION
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 85),
+                      child: Center(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            _getTitleForCurrentTab(navigationShell.currentIndex),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: context.fontSize(18),
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -121,12 +130,12 @@ class NavigationShell extends ConsumerWidget {
                             ),
                             const SizedBox(width: 10),
 
-                            // 2. Rendez-vous (agenda / event note selon Figma, badge doré #D4AF37)
+                            // 2. Rendez-vous (panier de prestations / rendez-vous par salon)
                             _buildAppBarAction(
                               icon: Icons.event_note_outlined,
                               badgeColor: AppColors.figmaBadgeGold,
-                              badgeCount: 1, // Indicateur d'action active
-                              onTap: () => context.push(RouteNames.mesRendezVous),
+                              badgeCount: rdvCount,
+                              onTap: () => context.push(RouteNames.panierRendezVous),
                             ),
                           ],
                         ),
@@ -180,24 +189,28 @@ class NavigationShell extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     _buildBottomTab(
+                      context,
                       index: 0,
                       label: 'Accueil',
                       icon: Icons.home_rounded,
                       isDark: isDark,
                     ),
                     _buildBottomTab(
+                      context,
                       index: 1,
                       label: 'Salon',
                       icon: Icons.storefront_rounded,
                       isDark: isDark,
                     ),
                     _buildBottomTab(
+                      context,
                       index: 2,
                       label: "Kady's",
                       icon: Icons.play_circle_fill_rounded,
                       isDark: isDark,
                     ),
                     _buildBottomTab(
+                      context,
                       index: 3,
                       label: 'Compte',
                       icon: Icons.person_rounded,
@@ -277,7 +290,8 @@ class NavigationShell extends ConsumerWidget {
   // ==============================================================
   // HELPER : Élément d'onglet BottomNavigationBar (Container & Column)
   // ==============================================================
-  Widget _buildBottomTab({
+  Widget _buildBottomTab(
+    BuildContext context, {
     required int index,
     required String label,
     required IconData icon,
@@ -309,7 +323,11 @@ class NavigationShell extends ConsumerWidget {
                 children: [
                   Icon(
                     icon,
-                    size: 29, // Agrandissement selon maquette Figma (était 24)
+                    size: context.responsiveValue<double>(
+                      smallPhone: 26,
+                      standard: 29,
+                      tablet: 32,
+                    ),
                     color: itemColor,
                   ),
                   if (badgeCount > 0)
@@ -346,13 +364,17 @@ class NavigationShell extends ConsumerWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  color: itemColor,
-                  fontSize: 12.5,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: itemColor,
+                    fontSize: context.fontSize(12),
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                  maxLines: 1,
                 ),
               ),
             ],

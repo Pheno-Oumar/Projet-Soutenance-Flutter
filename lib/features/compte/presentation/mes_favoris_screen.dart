@@ -2,70 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../routing/route_names.dart';
-
-// Modèle Salon Favori
-class FavoriSalonItem {
-  final String id;
-  final String nom;
-  final double rating;
-  final int avisCount;
-  final String adresse;
-  final String imagePath;
-  final String fallbackImagePath;
-  final String slug;
-  bool isFavorite;
-
-  FavoriSalonItem({
-    required this.id,
-    required this.nom,
-    required this.rating,
-    required this.avisCount,
-    required this.adresse,
-    required this.imagePath,
-    required this.fallbackImagePath,
-    required this.slug,
-    this.isFavorite = true,
-  });
-}
-
-// Modèle Coiffure Favorite
-class FavoriCoiffureItem {
-  final String id;
-  final String nom;
-  final String prix;
-  final String imagePath;
-  final String fallbackImagePath;
-  bool isFavorite;
-
-  FavoriCoiffureItem({
-    required this.id,
-    required this.nom,
-    required this.prix,
-    required this.imagePath,
-    required this.fallbackImagePath,
-    this.isFavorite = true,
-  });
-}
-
-// Modèle Produit Favori
-class FavoriProduitItem {
-  final String id;
-  final String nom;
-  final String prix;
-  final String imagePath;
-  final String fallbackImagePath;
-  bool isFavorite;
-
-  FavoriProduitItem({
-    required this.id,
-    required this.nom,
-    required this.prix,
-    required this.imagePath,
-    required this.fallbackImagePath,
-    this.isFavorite = true,
-  });
-}
+import '../../auth/presentation/providers/auth_provider.dart';
+import '../../salon/data/models/salon_model.dart';
+import '../../salon/presentation/providers/salon_provider.dart';
+import 'providers/favoris_provider.dart';
 
 enum FavoriTab { salons, coiffures, produits }
 
@@ -84,220 +26,18 @@ class MesFavorisScreen extends ConsumerStatefulWidget {
 class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
   late FavoriTab _currentTab;
 
-  late List<FavoriSalonItem> _salons;
-  late List<FavoriCoiffureItem> _coiffures;
-  late List<FavoriProduitItem> _produits;
-
   @override
   void initState() {
     super.initState();
     _currentTab = widget.initialTab;
-
-    _salons = [
-      FavoriSalonItem(
-        id: '1',
-        nom: 'Beauty By Dika',
-        rating: 4.8,
-        avisCount: 124,
-        adresse: 'Bamako, Kalaban',
-        imagePath: 'assets/images/favoris_salon_img_0.jpeg',
-        fallbackImagePath: 'assets/images/salons_img_0.jpg',
-        slug: 'beauty-by-dika',
-      ),
-      FavoriSalonItem(
-        id: '2',
-        nom: 'Mathy hair',
-        rating: 4.8,
-        avisCount: 124,
-        adresse: 'Bamako, Kalaban',
-        imagePath: 'assets/images/favoris_salon_img_1.jpeg',
-        fallbackImagePath: 'assets/images/salons_img_1.jpg',
-        slug: 'mathy-hair',
-      ),
-      FavoriSalonItem(
-        id: '3',
-        nom: 'Hair Prestige',
-        rating: 4.8,
-        avisCount: 124,
-        adresse: 'Bamako, Kalaban',
-        imagePath: 'assets/images/favoris_salon_img_2.jpeg',
-        fallbackImagePath: 'assets/images/salons_img_2.jpg',
-        slug: 'hair-prestige',
-      ),
-      FavoriSalonItem(
-        id: '4',
-        nom: "L'Atelier des Cheveux",
-        rating: 4.8,
-        avisCount: 124,
-        adresse: 'Bamako, Kalaban',
-        imagePath: 'assets/images/favoris_salon_img_3.jpeg',
-        fallbackImagePath: 'assets/images/salons_img_3.jpg',
-        slug: 'latelier-des-cheveux',
-      ),
-      FavoriSalonItem(
-        id: '5',
-        nom: 'Adja Beauty',
-        rating: 4.8,
-        avisCount: 124,
-        adresse: 'Bamako, Kalaban',
-        imagePath: 'assets/images/favoris_salon_img_4.jpeg',
-        fallbackImagePath: 'assets/images/salons_img_4.jpg',
-        slug: 'adja-beauty',
-      ),
-      FavoriSalonItem(
-        id: '6',
-        nom: 'Safoura Coiffure',
-        rating: 4.8,
-        avisCount: 124,
-        adresse: 'Bamako, Kalaban',
-        imagePath: 'assets/images/favoris_salon_img_5.jpeg',
-        fallbackImagePath: 'assets/images/salons_img_5.jpg',
-        slug: 'safoura-coiffure',
-      ),
-    ];
-
-    _coiffures = [
-      FavoriCoiffureItem(
-        id: '1',
-        nom: 'Tresses collées',
-        prix: '5 000 FCFA',
-        imagePath: 'assets/images/favoris_coiffure_img_0.png',
-        fallbackImagePath: 'assets/images/service_img_0.jpg',
-      ),
-      FavoriCoiffureItem(
-        id: '2',
-        nom: 'Brushing',
-        prix: '6 000 FCFA',
-        imagePath: 'assets/images/favoris_coiffure_img_1.png',
-        fallbackImagePath: 'assets/images/service_img_1.jpg',
-      ),
-      FavoriCoiffureItem(
-        id: '3',
-        nom: 'Coupe homme',
-        prix: '8 000 FCFA',
-        imagePath: 'assets/images/favoris_coiffure_img_2.jpeg',
-        fallbackImagePath: 'assets/images/service_img_2.jpg',
-      ),
-      FavoriCoiffureItem(
-        id: '4',
-        nom: 'Manucure\n& Pédicure',
-        prix: '4 000 FCFA',
-        imagePath: 'assets/images/favoris_coiffure_img_3.jpeg',
-        fallbackImagePath: 'assets/images/service_img_3.jpg',
-      ),
-      FavoriCoiffureItem(
-        id: '5',
-        nom: 'Tresses\nafricaines',
-        prix: '7 000 FCFA',
-        imagePath: 'assets/images/favoris_coiffure_img_4.jpeg',
-        fallbackImagePath: 'assets/images/service_img_4.jpg',
-      ),
-      FavoriCoiffureItem(
-        id: '6',
-        nom: 'Soin visage',
-        prix: '12 000 FCFA',
-        imagePath: 'assets/images/favoris_coiffure_img_5.jpeg',
-        fallbackImagePath: 'assets/images/service_img_5.jpg',
-      ),
-    ];
-
-    _produits = [
-      FavoriProduitItem(
-        id: '1',
-        nom: 'Oreal',
-        prix: '5 000 FCFA',
-        imagePath: 'assets/images/favoris_produit_img_0.png',
-        fallbackImagePath: 'assets/images/produit_cat_img_0.jpg',
-      ),
-      FavoriProduitItem(
-        id: '2',
-        nom: 'Bare',
-        prix: '6 000 FCFA',
-        imagePath: 'assets/images/favoris_produit_img_1.png',
-        fallbackImagePath: 'assets/images/produit_cat_img_1.jpg',
-      ),
-      FavoriProduitItem(
-        id: '3',
-        nom: 'Najel',
-        prix: '8 000 FCFA',
-        imagePath: 'assets/images/favoris_produit_img_2.png',
-        fallbackImagePath: 'assets/images/produit_cat_img_2.jpg',
-      ),
-      FavoriProduitItem(
-        id: '4',
-        nom: 'Palmolive',
-        prix: '4 000 FCFA',
-        imagePath: 'assets/images/favoris_produit_img_3.png',
-        fallbackImagePath: 'assets/images/produit_cat_img_3.jpg',
-      ),
-      FavoriProduitItem(
-        id: '5',
-        nom: 'Kérastase',
-        prix: '7 000 FCFA',
-        imagePath: 'assets/images/favoris_produit_img_4.png',
-        fallbackImagePath: 'assets/images/produit_cat_img_4.jpg',
-      ),
-      FavoriProduitItem(
-        id: '6',
-        nom: 'Sérum soin',
-        prix: '12 000 FCFA',
-        imagePath: 'assets/images/favoris_produit_img_5.png',
-        fallbackImagePath: 'assets/images/produit_cat_img_5.jpg',
-      ),
-    ];
-  }
-
-  void _toggleSalonFavorite(FavoriSalonItem item) {
-    setState(() {
-      item.isFavorite = !item.isFavorite;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          item.isFavorite
-              ? '${item.nom} ajouté aux favoris'
-              : '${item.nom} retiré des favoris',
-        ),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
-  void _toggleCoiffureFavorite(FavoriCoiffureItem item) {
-    setState(() {
-      item.isFavorite = !item.isFavorite;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          item.isFavorite
-              ? '${item.nom.replaceAll('\n', ' ')} ajoutée aux favoris'
-              : '${item.nom.replaceAll('\n', ' ')} retirée des favoris',
-        ),
-        duration: const Duration(seconds: 1),
-      ),
-    );
-  }
-
-  void _toggleProduitFavorite(FavoriProduitItem item) {
-    setState(() {
-      item.isFavorite = !item.isFavorite;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          item.isFavorite
-              ? '${item.nom} ajouté aux favoris'
-              : '${item.nom} retiré des favoris',
-        ),
-        duration: const Duration(seconds: 1),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isAuth = ref.watch(authStateProvider).isAuthenticated;
+    final favState = ref.watch(favorisProvider);
+    final salonsState = ref.watch(salonsListProvider);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
@@ -361,8 +101,13 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
           Expanded(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              child: _buildCurrentTabContent(isDark),
+              padding: EdgeInsets.only(
+                left: 14,
+                right: 14,
+                top: 8,
+                bottom: context.responsiveValue(compact: 70.0, standard: 80.0),
+              ),
+              child: _buildCurrentTabContent(isDark, isAuth, favState, salonsState),
             ),
           ),
         ],
@@ -388,7 +133,10 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
               ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
               : (isDark ? AppColors.darkSurface : const Color(0xFFEEE1D6)),
           borderRadius: BorderRadius.circular(16),
-          border: (!isSelected && isDark) ? Border.all(color: AppColors.darkBorder) : null,
+          border: context.symmetricBorder(
+            isSelected: isSelected,
+            selectedColor: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+          ),
         ),
         child: Text(
           label,
@@ -396,7 +144,7 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
             color: isSelected
                 ? (isDark ? const Color(0xFF1E1610) : Colors.white)
                 : (isDark ? AppColors.darkTextSecondary : AppColors.figmaBrown),
-            fontSize: 13,
+            fontSize: context.fontSize(13),
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -404,53 +152,127 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
     );
   }
 
-  Widget _buildCurrentTabContent(bool isDark) {
+  Widget _buildCurrentTabContent(
+    bool isDark,
+    bool isAuth,
+    FavorisState favState,
+    SalonsListState salonsState,
+  ) {
     switch (_currentTab) {
       case FavoriTab.salons:
-        return _buildSalonsGrid(isDark);
+        return _buildSalonsContent(isDark, isAuth, favState, salonsState);
       case FavoriTab.coiffures:
-        return _buildCoiffuresGrid();
+        return _buildCoiffuresContent(isDark, isAuth, favState);
       case FavoriTab.produits:
-        return _buildProduitsGrid();
+        return _buildProduitsContent(isDark, isAuth, favState);
     }
   }
 
   // ==============================================================
-  // TAB 1 : GRILLE SALONS (Carte blanche, bordure fine, photo en haut)
+  // TAB 1 : GRILLE SALONS FAVORIS
   // ==============================================================
-  Widget _buildSalonsGrid(bool isDark) {
-    final activeSalons = _salons.where((s) => s.isFavorite).toList();
+  Widget _buildSalonsContent(
+    bool isDark,
+    bool isAuth,
+    FavorisState favState,
+    SalonsListState salonsState,
+  ) {
+    if (isAuth) {
+      final remoteAsync = ref.watch(favorisRemoteSalonsProvider);
+      return remoteAsync.when(
+        loading: () => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(40),
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.figmaActiveGold),
+            ),
+          ),
+        ),
+        error: (_, _) => _buildEmptyState('Impossible de charger vos salons favoris'),
+        data: (remoteList) {
+          if (remoteList.isEmpty) {
+            return _buildEmptyState('Aucun salon dans vos favoris');
+          }
 
-    if (activeSalons.isEmpty) {
-      return _buildEmptyState('Aucun salon dans vos favoris');
+          // Construire les cartes depuis remoteList
+          final items = remoteList.map((m) {
+            final slug = (m['salonSlug'] ?? m['slug'] ?? '').toString();
+            final nom = (m['salonNom'] ?? m['nom'] ?? 'Salon').toString();
+            final logo = m['salonLogoUrl'] as String?;
+
+            // Essayer de trouver les détails supplémentaires dans salonsState
+            final matchedSalon = salonsState.salons.cast<SalonModel?>().firstWhere(
+                  (s) => s?.slug == slug,
+                  orElse: () => null,
+                );
+
+            final image = matchedSalon?.coverUrl ?? matchedSalon?.logoUrl ?? logo ?? 'assets/images/favoris_salon_img_0.jpeg';
+            final rating = matchedSalon != null && matchedSalon.noteMoyenne > 0
+                ? matchedSalon.noteMoyenne.toStringAsFixed(1)
+                : '4.8';
+            final avisCount = matchedSalon?.nombreAvis ?? 12;
+            final adresse = matchedSalon?.adresse ?? 'Dakar, Sénégal';
+
+            return _FavoriSalonData(
+              slug: slug,
+              nom: nom,
+              imagePath: image,
+              rating: rating,
+              avisCount: avisCount,
+              adresse: adresse,
+            );
+          }).toList();
+
+          return _renderSalonsGrid(items, isDark);
+        },
+      );
+    } else {
+      // Mode invité : Salons matchés avec salonSlugs
+      final guestSalons = salonsState.salons
+          .where((s) => favState.isSalonFav(s.slug))
+          .map((s) => _FavoriSalonData(
+                slug: s.slug,
+                nom: s.nom,
+                imagePath: s.coverUrl ?? s.logoUrl ?? 'assets/images/favoris_salon_img_0.jpeg',
+                rating: s.noteMoyenne > 0 ? s.noteMoyenne.toStringAsFixed(1) : '4.8',
+                avisCount: s.nombreAvis,
+                adresse: s.adresse ?? 'Dakar, Sénégal',
+              ))
+          .toList();
+
+      if (guestSalons.isEmpty) {
+        return _buildEmptyState('Aucun salon dans vos favoris');
+      }
+
+      return _renderSalonsGrid(guestSalons, isDark);
     }
+  }
 
-    // 2 colonnes
+  Widget _renderSalonsGrid(List<_FavoriSalonData> items, bool isDark) {
     final rows = <Widget>[];
-    for (int i = 0; i < activeSalons.length; i += 2) {
-      final salon1 = activeSalons[i];
-      final salon2 = (i + 1 < activeSalons.length) ? activeSalons[i + 1] : null;
+    for (int i = 0; i < items.length; i += 2) {
+      final item1 = items[i];
+      final item2 = (i + 1 < items.length) ? items[i + 1] : null;
 
       rows.add(
         Padding(
           padding: const EdgeInsets.only(bottom: 14),
           child: Row(
             children: [
-              Expanded(child: _buildSalonCard(salon1, isDark)),
+              Expanded(child: _buildSalonCard(item1, isDark)),
               const SizedBox(width: 12),
               Expanded(
-                child: salon2 != null ? _buildSalonCard(salon2, isDark) : const SizedBox(),
+                child: item2 != null ? _buildSalonCard(item2, isDark) : const SizedBox(),
               ),
             ],
           ),
         ),
       );
     }
-
     return Column(children: rows);
   }
 
-  Widget _buildSalonCard(FavoriSalonItem item, bool isDark) {
+  Widget _buildSalonCard(_FavoriSalonData item, bool isDark) {
     return GestureDetector(
       onTap: () {
         context.push('/salons/${item.slug}');
@@ -459,10 +281,7 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkSurface : Colors.white,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark ? AppColors.darkBorder : const Color(0xFFE8E2DC),
-            width: 1.0,
-          ),
+          border: context.symmetricBorder(),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
@@ -474,39 +293,26 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image en haut
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
               child: SizedBox(
-                height: 107,
+                height: context.responsiveValue(compact: 96.0, standard: 107.0),
                 width: double.infinity,
-                child: Image.asset(
+                child: _buildImage(
                   item.imagePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Image.asset(
-                    item.fallbackImagePath,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      color: const Color(0xFFF2EAE1),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.storefront_rounded, color: AppColors.figmaBrown, size: 30),
-                    ),
-                  ),
+                  fallbackAsset: 'assets/images/salons_img_0.jpg',
                 ),
               ),
             ),
-
-            // Contenu texte
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Nom du salon
                   Text(
                     item.nom,
                     style: TextStyle(
-                      fontSize: 13.5,
+                      fontSize: context.fontSize(13.5),
                       fontWeight: FontWeight.w700,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1817),
                     ),
@@ -514,16 +320,14 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
-
-                  // Étoile + Note + Avis
                   Row(
                     children: [
                       const Icon(Icons.star_rounded, size: 14, color: Color(0xFFEBC416)),
                       const SizedBox(width: 4),
                       Text(
-                        '${item.rating}',
+                        item.rating,
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: context.fontSize(11.5),
                           fontWeight: FontWeight.w700,
                           color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1817),
                         ),
@@ -532,15 +336,13 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                       Text(
                         ' (${item.avisCount} avis)',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: context.fontSize(11),
                           color: isDark ? AppColors.darkTextSecondary : const Color(0xFF8C827A),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 4),
-
-                  // Adresse + Cœur favori rouge
                   Row(
                     children: [
                       const Icon(Icons.location_on, size: 13, color: Color(0xFFF24822)),
@@ -549,7 +351,7 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                         child: Text(
                           item.adresse,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: context.fontSize(11),
                             color: isDark ? AppColors.darkTextMuted : const Color(0xFF8C827A),
                           ),
                           maxLines: 1,
@@ -557,11 +359,19 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => _toggleSalonFavorite(item),
-                        child: Icon(
-                          item.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        onTap: () {
+                          ref.read(favorisProvider.notifier).toggleSalon(item.slug);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${item.nom} retiré des favoris'),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        },
+                        child: const Icon(
+                          Icons.favorite_rounded,
                           size: 17,
-                          color: const Color(0xFFF24822),
+                          color: Color(0xFFF24822),
                         ),
                       ),
                     ],
@@ -576,46 +386,113 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
   }
 
   // ==============================================================
-  // TAB 2 : GRILLE COIFFURES (Carte pleine photo avec badge or)
+  // TAB 2 : GRILLE COIFFURES FAVORITES
   // ==============================================================
-  Widget _buildCoiffuresGrid() {
-    final activeCoiffures = _coiffures.where((c) => c.isFavorite).toList();
+  Widget _buildCoiffuresContent(bool isDark, bool isAuth, FavorisState favState) {
+    if (isAuth) {
+      final remoteAsync = ref.watch(favorisRemoteCoiffuresProvider);
+      return remoteAsync.when(
+        loading: () => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(40),
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.figmaActiveGold),
+            ),
+          ),
+        ),
+        error: (_, _) => _buildEmptyState('Impossible de charger vos coiffures favorites'),
+        data: (remoteList) {
+          if (remoteList.isEmpty) {
+            return _buildEmptyState('Aucune coiffure dans vos favoris');
+          }
 
-    if (activeCoiffures.isEmpty) {
-      return _buildEmptyState('Aucune coiffure dans vos favoris');
+          final items = remoteList.map((m) {
+            final varianteId = (m['varianteId'] ?? m['id'] ?? 0) as int;
+            final nom = (m['varianteNom'] ?? m['serviceNom'] ?? 'Coiffure').toString();
+            final slug = m['salonSlug'] as String?;
+            final salonNom = m['salonNom'] as String?;
+            final rawPrix = m['prix'];
+            final prixStr = rawPrix != null ? '${(rawPrix as num).toInt()} FCFA' : 'Sur devis';
+
+            return _FavoriCoiffureData(
+              id: varianteId,
+              nom: nom,
+              prix: prixStr,
+              salonSlug: slug,
+              salonNom: salonNom,
+              imagePath: 'assets/images/favoris_coiffure_img_${varianteId % 5}.png',
+            );
+          }).toList();
+
+          return _renderCoiffuresGrid(items);
+        },
+      );
+    } else {
+      // Mode invité
+      final servicesAsync = ref.watch(servicesTransversauxProvider(null));
+      final allServices = servicesAsync.value ?? [];
+      final guestCoiffures = <_FavoriCoiffureData>[];
+
+      for (final s in allServices) {
+        for (final v in s.variantes) {
+          if (favState.isCoiffureFav(v.id)) {
+            guestCoiffures.add(
+              _FavoriCoiffureData(
+                id: v.id,
+                nom: '${s.nom} - ${v.nom}',
+                prix: '${v.prix.toInt()} FCFA',
+                salonSlug: s.slugSalon,
+                salonNom: s.salonNom,
+                imagePath: s.imageUrl ?? 'assets/images/favoris_coiffure_img_0.png',
+              ),
+            );
+          }
+        }
+      }
+
+      if (guestCoiffures.isEmpty) {
+        return _buildEmptyState('Aucune coiffure dans vos favoris');
+      }
+
+      return _renderCoiffuresGrid(guestCoiffures);
     }
+  }
 
+  Widget _renderCoiffuresGrid(List<_FavoriCoiffureData> items) {
     final rows = <Widget>[];
-    for (int i = 0; i < activeCoiffures.length; i += 2) {
-      final coiffure1 = activeCoiffures[i];
-      final coiffure2 = (i + 1 < activeCoiffures.length) ? activeCoiffures[i + 1] : null;
+    for (int i = 0; i < items.length; i += 2) {
+      final c1 = items[i];
+      final c2 = (i + 1 < items.length) ? items[i + 1] : null;
 
       rows.add(
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             children: [
-              Expanded(child: _buildCoiffureCard(coiffure1)),
+              Expanded(child: _buildCoiffureCard(c1)),
               const SizedBox(width: 12),
               Expanded(
-                child: coiffure2 != null ? _buildCoiffureCard(coiffure2) : const SizedBox(),
+                child: c2 != null ? _buildCoiffureCard(c2) : const SizedBox(),
               ),
             ],
           ),
         ),
       );
     }
-
     return Column(children: rows);
   }
 
-  Widget _buildCoiffureCard(FavoriCoiffureItem item) {
+  Widget _buildCoiffureCard(_FavoriCoiffureData item) {
     return GestureDetector(
       onTap: () {
-        context.push(RouteNames.serviceVariantes);
+        if (item.salonSlug != null) {
+          context.push('/salons/${item.salonSlug}');
+        } else {
+          context.push(RouteNames.salons);
+        }
       },
       child: Container(
-        height: 150,
+        height: context.responsiveValue(compact: 140.0, standard: 150.0),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
@@ -631,22 +508,10 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Image de fond
-              Image.asset(
+              _buildImage(
                 item.imagePath,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Image.asset(
-                  item.fallbackImagePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    color: const Color(0xFF382319),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.face_3_outlined, color: AppColors.figmaActiveGold, size: 30),
-                  ),
-                ),
+                fallbackAsset: 'assets/images/service_img_0.jpg',
               ),
-
-              // Voile dégradé noir en bas pour la lisibilité
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -663,29 +528,33 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                   ),
                 ),
               ),
-
-              // Cœur favori rouge en haut à droite
               Positioned(
                 top: 8,
                 right: 8,
                 child: GestureDetector(
-                  onTap: () => _toggleCoiffureFavorite(item),
+                  onTap: () {
+                    ref.read(favorisProvider.notifier).toggleCoiffure(item.id);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${item.nom} retirée des favoris'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      item.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                      color: const Color(0xFFF44336),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: Color(0xFFF44336),
                       size: 20,
                     ),
                   ),
                 ),
               ),
-
-              // Nom et Badge Prix en bas
               Positioned(
                 left: 10,
                 right: 8,
@@ -693,13 +562,12 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // Nom de la coiffure
                     Expanded(
                       child: Text(
                         item.nom,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 12.5,
+                          fontSize: context.fontSize(12.5),
                           fontWeight: FontWeight.w700,
                           height: 1.2,
                         ),
@@ -708,8 +576,6 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                       ),
                     ),
                     const SizedBox(width: 4),
-
-                    // Badge Prix avec contour doré et fond sombre
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
@@ -720,12 +586,15 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                           width: 1.0,
                         ),
                       ),
-                      child: Text(
-                        item.prix,
-                        style: const TextStyle(
-                          color: Color(0xFFECC870),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          item.prix,
+                          style: TextStyle(
+                            color: const Color(0xFFECC870),
+                            fontSize: context.fontSize(10),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -740,46 +609,107 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
   }
 
   // ==============================================================
-  // TAB 3 : GRILLE PRODUITS (Carte pleine photo avec badge or)
+  // TAB 3 : GRILLE PRODUITS FAVORIS
   // ==============================================================
-  Widget _buildProduitsGrid() {
-    final activeProduits = _produits.where((p) => p.isFavorite).toList();
+  Widget _buildProduitsContent(bool isDark, bool isAuth, FavorisState favState) {
+    if (isAuth) {
+      final remoteAsync = ref.watch(favorisRemoteProduitsProvider);
+      return remoteAsync.when(
+        loading: () => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(40),
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.figmaActiveGold),
+            ),
+          ),
+        ),
+        error: (_, _) => _buildEmptyState('Impossible de charger vos produits favoris'),
+        data: (remoteList) {
+          if (remoteList.isEmpty) {
+            return _buildEmptyState('Aucun produit dans vos favoris');
+          }
 
-    if (activeProduits.isEmpty) {
-      return _buildEmptyState('Aucun produit dans vos favoris');
+          final items = remoteList.map((m) {
+            final produitId = (m['produitId'] ?? m['id'] ?? 0) as int;
+            final nom = (m['produitNom'] ?? m['nom'] ?? 'Produit').toString();
+            final slug = m['salonSlug'] as String?;
+            final salonNom = m['salonNom'] as String?;
+            final image = m['imageUrl'] as String?;
+            final rawPrix = m['prixVente'] ?? m['prix'];
+            final prixStr = rawPrix != null ? '${(rawPrix as num).toInt()} FCFA' : 'Sur demande';
+
+            return _FavoriProduitData(
+              id: produitId,
+              nom: nom,
+              prix: prixStr,
+              salonSlug: slug,
+              salonNom: salonNom,
+              imagePath: image ?? 'assets/images/favoris_produit_img_${produitId % 5}.png',
+            );
+          }).toList();
+
+          return _renderProduitsGrid(items);
+        },
+      );
+    } else {
+      // Mode invité
+      final produitsAsync = ref.watch(produitsTransversauxProvider(null));
+      final allProduits = produitsAsync.value ?? [];
+      final guestProduits = allProduits
+          .where((p) => favState.isProduitFav(p.id))
+          .map((p) => _FavoriProduitData(
+                id: p.id,
+                nom: p.nom,
+                prix: '${p.prixVente.toInt()} FCFA',
+                salonSlug: p.slugSalon,
+                salonNom: p.salonNom,
+                imagePath: p.mainImage ?? 'assets/images/favoris_produit_img_0.png',
+              ))
+          .toList();
+
+      if (guestProduits.isEmpty) {
+        return _buildEmptyState('Aucun produit dans vos favoris');
+      }
+
+      return _renderProduitsGrid(guestProduits);
     }
+  }
 
+  Widget _renderProduitsGrid(List<_FavoriProduitData> items) {
     final rows = <Widget>[];
-    for (int i = 0; i < activeProduits.length; i += 2) {
-      final produit1 = activeProduits[i];
-      final produit2 = (i + 1 < activeProduits.length) ? activeProduits[i + 1] : null;
+    for (int i = 0; i < items.length; i += 2) {
+      final p1 = items[i];
+      final p2 = (i + 1 < items.length) ? items[i + 1] : null;
 
       rows.add(
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
             children: [
-              Expanded(child: _buildProduitCard(produit1)),
+              Expanded(child: _buildProduitCard(p1)),
               const SizedBox(width: 12),
               Expanded(
-                child: produit2 != null ? _buildProduitCard(produit2) : const SizedBox(),
+                child: p2 != null ? _buildProduitCard(p2) : const SizedBox(),
               ),
             ],
           ),
         ),
       );
     }
-
     return Column(children: rows);
   }
 
-  Widget _buildProduitCard(FavoriProduitItem item) {
+  Widget _buildProduitCard(_FavoriProduitData item) {
     return GestureDetector(
       onTap: () {
-        context.push(RouteNames.produitDetail);
+        if (item.salonSlug != null) {
+          context.push('/salons/${item.salonSlug}/produits/${item.id}');
+        } else {
+          context.push(RouteNames.salons);
+        }
       },
       child: Container(
-        height: 150,
+        height: context.responsiveValue(compact: 140.0, standard: 150.0),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
@@ -795,22 +725,10 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              // Image du produit
-              Image.asset(
+              _buildImage(
                 item.imagePath,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Image.asset(
-                  item.fallbackImagePath,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    color: const Color(0xFFF9FAFB),
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.shopping_bag_outlined, color: AppColors.figmaBrown, size: 30),
-                  ),
-                ),
+                fallbackAsset: 'assets/images/produit_cat_img_0.jpg',
               ),
-
-              // Voile dégradé noir en bas
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -827,29 +745,33 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                   ),
                 ),
               ),
-
-              // Cœur favori rouge en haut à droite
               Positioned(
                 top: 8,
                 right: 8,
                 child: GestureDetector(
-                  onTap: () => _toggleProduitFavorite(item),
+                  onTap: () {
+                    ref.read(favorisProvider.notifier).toggleProduit(item.id);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${item.nom} retiré des favoris'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  },
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.2),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(
-                      item.isFavorite ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-                      color: const Color(0xFFF44336),
+                    child: const Icon(
+                      Icons.favorite_rounded,
+                      color: Color(0xFFF44336),
                       size: 20,
                     ),
                   ),
                 ),
               ),
-
-              // Nom du produit et Badge Prix en bas
               Positioned(
                 left: 10,
                 right: 8,
@@ -857,13 +779,12 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    // Nom
                     Expanded(
                       child: Text(
                         item.nom,
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
-                          fontSize: 12.5,
+                          fontSize: context.fontSize(12.5),
                           fontWeight: FontWeight.w700,
                           height: 1.2,
                         ),
@@ -872,8 +793,6 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                       ),
                     ),
                     const SizedBox(width: 4),
-
-                    // Badge Prix avec contour doré et fond sombre
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                       decoration: BoxDecoration(
@@ -884,12 +803,15 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                           width: 1.0,
                         ),
                       ),
-                      child: Text(
-                        item.prix,
-                        style: const TextStyle(
-                          color: Color(0xFFECC870),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          item.prix,
+                          style: TextStyle(
+                            color: const Color(0xFFECC870),
+                            fontSize: context.fontSize(10),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
@@ -903,6 +825,48 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
     );
   }
 
+  // ==============================================================
+  // HELPER : Gestion unifiée des images
+  // ==============================================================
+  Widget _buildImage(
+    String pathOrUrl, {
+    BoxFit fit = BoxFit.cover,
+    double? width,
+    double? height,
+    required String fallbackAsset,
+  }) {
+    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+      return Image.network(
+        pathOrUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (ctx, err, stack) => Image.asset(
+          fallbackAsset,
+          width: width,
+          height: height,
+          fit: fit,
+        ),
+      );
+    } else {
+      return Image.asset(
+        pathOrUrl,
+        width: width,
+        height: height,
+        fit: fit,
+        errorBuilder: (ctx, err, stack) => Image.asset(
+          fallbackAsset,
+          width: width,
+          height: height,
+          fit: fit,
+        ),
+      );
+    }
+  }
+
+  // ==============================================================
+  // HELPER : État vide
+  // ==============================================================
   Widget _buildEmptyState(String message) {
     return Container(
       width: double.infinity,
@@ -962,4 +926,58 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
       ),
     );
   }
+}
+
+class _FavoriSalonData {
+  final String slug;
+  final String nom;
+  final String imagePath;
+  final String rating;
+  final int avisCount;
+  final String adresse;
+
+  const _FavoriSalonData({
+    required this.slug,
+    required this.nom,
+    required this.imagePath,
+    required this.rating,
+    required this.avisCount,
+    required this.adresse,
+  });
+}
+
+class _FavoriCoiffureData {
+  final int id;
+  final String nom;
+  final String prix;
+  final String? salonSlug;
+  final String? salonNom;
+  final String imagePath;
+
+  const _FavoriCoiffureData({
+    required this.id,
+    required this.nom,
+    required this.prix,
+    this.salonSlug,
+    this.salonNom,
+    required this.imagePath,
+  });
+}
+
+class _FavoriProduitData {
+  final int id;
+  final String nom;
+  final String prix;
+  final String? salonSlug;
+  final String? salonNom;
+  final String imagePath;
+
+  const _FavoriProduitData({
+    required this.id,
+    required this.nom,
+    required this.prix,
+    this.salonSlug,
+    this.salonNom,
+    required this.imagePath,
+  });
 }

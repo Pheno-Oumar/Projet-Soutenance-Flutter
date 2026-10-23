@@ -69,9 +69,7 @@ class PrestationCardWidget extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final imagePath = prestation.primaryImageUrl;
     final title = prestation.primaryNomService;
-    final dateStr = prestation.dateHeureDebut.contains('•')
-        ? prestation.dateHeureDebut.split('•').first.trim()
-        : prestation.dateHeureDebut;
+    final dateStr = prestation.dateHeureDebutFormatee;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),

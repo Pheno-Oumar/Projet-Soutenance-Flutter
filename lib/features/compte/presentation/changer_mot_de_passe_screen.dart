@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 import '../data/compte_repository.dart';
 
 class ChangerMotDePasseScreen extends ConsumerStatefulWidget {
@@ -122,18 +123,23 @@ class _ChangerMotDePasseScreenState extends ConsumerState<ChangerMotDePasseScree
           icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
           onPressed: () => context.pop(),
         ),
-        title: const Text(
+        title: Text(
           'Sécurité & Mot de passe',
           style: TextStyle(
             color: Colors.white,
-            fontSize: 18,
+            fontSize: context.fontSize(18),
             fontWeight: FontWeight.bold,
           ),
         ),
       ),
       body: SingleChildScrollView(
         physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: context.responsiveValue(compact: 70.0, standard: 80.0),
+        ),
         child: Form(
           key: _formKey,
           child: Column(
@@ -145,11 +151,10 @@ class _ChangerMotDePasseScreenState extends ConsumerState<ChangerMotDePasseScree
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.darkSurface : const Color(0xFFFBF4ED),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isDark
+                  border: context.symmetricBorder(
+                    borderColor: isDark
                         ? AppColors.darkBorder
                         : const Color(0xFFE2C9B6).withValues(alpha: 0.6),
-                    width: 1.2,
                   ),
                 ),
                 child: Row(
@@ -359,19 +364,22 @@ class _ChangerMotDePasseScreenState extends ConsumerState<ChangerMotDePasseScree
                             color: Colors.white,
                           ),
                         )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.lock_reset_rounded, size: 20),
-                            SizedBox(width: 10),
-                            Text(
-                              'Mettre à jour le mot de passe',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
+                      : FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.lock_reset_rounded, size: 20),
+                              const SizedBox(width: 10),
+                              Text(
+                                'Mettre à jour le mot de passe',
+                                style: TextStyle(
+                                  fontSize: context.fontSize(15),
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                 ),
               ),
@@ -390,7 +398,7 @@ class _ChangerMotDePasseScreenState extends ConsumerState<ChangerMotDePasseScree
         Text(
           text,
           style: TextStyle(
-            fontSize: 12.5,
+            fontSize: context.fontSize(12.5),
             color: isDark ? AppColors.darkTextSecondary : const Color(0xFF4B5563),
             fontWeight: FontWeight.w500,
           ),
@@ -405,7 +413,7 @@ class _ChangerMotDePasseScreenState extends ConsumerState<ChangerMotDePasseScree
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 13,
+          fontSize: context.fontSize(13),
           fontWeight: FontWeight.w700,
           color: isDark ? AppColors.darkTextPrimary : const Color(0xFF374151),
         ),
@@ -422,7 +430,7 @@ class _ChangerMotDePasseScreenState extends ConsumerState<ChangerMotDePasseScree
     return InputDecoration(
       hintText: hintText,
       hintStyle: TextStyle(
-        fontSize: 13.5,
+        fontSize: context.fontSize(13.5),
         color: isDark ? AppColors.darkTextSecondary : Colors.black38,
       ),
       filled: true,
@@ -433,14 +441,14 @@ class _ChangerMotDePasseScreenState extends ConsumerState<ChangerMotDePasseScree
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E7EB),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           width: 1.0,
         ),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFE5E7EB),
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
           width: 1.0,
         ),
       ),

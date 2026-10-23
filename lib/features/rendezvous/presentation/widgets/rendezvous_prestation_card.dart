@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../data/models/rendezvous_model.dart';
 
 class RendezVousPrestationCard extends StatelessWidget {
@@ -16,17 +17,15 @@ class RendezVousPrestationCard extends StatelessWidget {
     final imagePath = ligne.imageUrl ?? 'assets/images/rdv_dt_venir_2.jpeg';
     final serviceTitle = ligne.nomService ?? 'Soin capillaire';
     final priceStr = '${ligne.prix.toStringAsFixed(0)} FCFA';
+    final imgSize = context.responsiveValue(compact: 50.0, standard: 56.0);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(context.responsiveValue(compact: 10.0, standard: 12.0)),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : const Color(0xFFFAF7F2),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFEFE9E0),
-          width: 1.0,
-        ),
+        border: context.symmetricBorder(),
       ),
       child: Row(
         children: [
@@ -34,8 +33,8 @@ class RendezVousPrestationCard extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
-              width: 56,
-              height: 56,
+              width: imgSize,
+              height: imgSize,
               child: Image.asset(
                 imagePath,
                 fit: BoxFit.cover,
@@ -65,7 +64,7 @@ class RendezVousPrestationCard extends StatelessWidget {
                 Text(
                   serviceTitle,
                   style: TextStyle(
-                    fontSize: 15,
+                    fontSize: context.fontSize(15),
                     fontWeight: FontWeight.w700,
                     color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                   ),
@@ -75,18 +74,22 @@ class RendezVousPrestationCard extends StatelessWidget {
                   Text(
                     ligne.nomVariante!,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: context.fontSize(12),
                       color: isDark ? AppColors.darkTextSecondary : Colors.grey[600],
                     ),
                   ),
                 ],
                 const SizedBox(height: 4),
-                Text(
-                  priceStr,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    priceStr,
+                    style: TextStyle(
+                      fontSize: context.fontSize(14),
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                    ),
                   ),
                 ),
               ],

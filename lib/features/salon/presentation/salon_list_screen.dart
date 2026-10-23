@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
+import '../../compte/presentation/providers/favoris_provider.dart';
 import 'providers/salon_provider.dart';
 
 class SalonItemData {
@@ -35,83 +37,6 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   int? _selectedSalonIndex;
-  final Set<int> _favoriteSalons = {};
-
-  // Salons officiels extraits exactement de la maquette Figma "Liste des salons.svg"
-  final List<SalonItemData> _figmaSalons = const [
-    SalonItemData(
-      name: 'Beauty By Dika',
-      imagePath: 'assets/images/salons_img_0.jpg',
-      rating: '4.8',
-      reviews: '124 avis',
-      location: 'Bamako, Kalaban',
-      slug: 'beauty-by-dika',
-      initials: 'BD',
-    ),
-    SalonItemData(
-      name: 'Mathy hair',
-      imagePath: 'assets/images/salons_img_1.jpg',
-      rating: '4.8',
-      reviews: '124 avis',
-      location: 'Bamako, Kalaban',
-      slug: 'mathy-hair',
-      initials: 'MH',
-    ),
-    SalonItemData(
-      name: 'Hair Prestige',
-      imagePath: 'assets/images/salons_img_2.jpg',
-      rating: '4.8',
-      reviews: '124 avis',
-      location: 'Bamako, Kalaban',
-      slug: 'hair-prestige',
-      initials: 'HP',
-    ),
-    SalonItemData(
-      name: "L'Atelier des Cheveux",
-      imagePath: 'assets/images/salons_img_3.jpg',
-      rating: '4.8',
-      reviews: '124 avis',
-      location: 'Bamako, Kalaban',
-      slug: 'latelier-des-cheveux',
-      initials: 'AC',
-    ),
-    SalonItemData(
-      name: 'Adja Beauty',
-      imagePath: 'assets/images/salons_img_4.jpg',
-      rating: '4.8',
-      reviews: '124 avis',
-      location: 'Bamako, Kalaban',
-      slug: 'adja-beauty',
-      initials: 'AB',
-    ),
-    SalonItemData(
-      name: 'Safoura Coiffure',
-      imagePath: 'assets/images/salons_img_5.jpg',
-      rating: '4.8',
-      reviews: '124 avis',
-      location: 'Bamako, Kalaban',
-      slug: 'safoura-coiffure',
-      initials: 'SC',
-    ),
-    SalonItemData(
-      name: "Kady's Hair Lounge",
-      imagePath: 'assets/images/salons_img_6.png',
-      rating: '4.9',
-      reviews: '156 avis',
-      location: 'Bamako, ACI 2000',
-      slug: 'kadys-hair',
-      initials: 'KH',
-    ),
-    SalonItemData(
-      name: 'Glow Afro Beauty',
-      imagePath: 'assets/images/salons_img_0.jpg',
-      rating: '4.7',
-      reviews: '98 avis',
-      location: 'Bamako, Badalabougou',
-      slug: 'glow-afro',
-      initials: 'GA',
-    ),
-  ];
 
   @override
   void dispose() {
@@ -119,12 +44,45 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
     super.dispose();
   }
 
-  List<SalonItemData> _getFilteredSalons() {
+  List<SalonItemData> _getFilteredSalons(List<dynamic> apiSalons) {
+    final List<SalonItemData> baseSalons = apiSalons.map((s) {
+      final image = (s.coverUrl != null && s.coverUrl.toString().isNotEmpty)
+          ? s.coverUrl.toString()
+          : (s.logoUrl != null && s.logoUrl.toString().isNotEmpty)
+              ? s.logoUrl.toString()
+              : 'assets/images/salons_img_0.jpg';
+
+      final nomStr = s.nom.toString();
+      final initials = nomStr.isNotEmpty
+          ? (nomStr.trim().length >= 2
+              ? nomStr.trim().substring(0, 2).toUpperCase()
+              : nomStr.trim().toUpperCase())
+          : 'SL';
+
+      final note = (s.noteMoyenne != null && s.noteMoyenne > 0)
+          ? (s.noteMoyenne as num).toDouble().toStringAsFixed(1)
+          : '4.8';
+
+      final avis = s.nombreAvis != null && s.nombreAvis > 0
+          ? '${s.nombreAvis} avis'
+          : 'Nouveau';
+
+      return SalonItemData(
+        name: nomStr,
+        imagePath: image,
+        rating: note,
+        reviews: avis,
+        location: s.adresse?.toString() ?? 'Dakar, Sénégal',
+        slug: s.slug.toString(),
+        initials: initials,
+      );
+    }).toList();
+
     if (_searchQuery.isEmpty) {
-      return _figmaSalons;
+      return baseSalons;
     }
     final q = _searchQuery.toLowerCase();
-    return _figmaSalons.where((s) {
+    return baseSalons.where((s) {
       return s.name.toLowerCase().contains(q) ||
           s.location.toLowerCase().contains(q);
     }).toList();
@@ -133,9 +91,9 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    // Si l'API Spring Boot renvoie des données dynamiques, on peut les synchroniser
+    // Données dynamiques du backend Spring Boot
     final apiState = ref.watch(salonsListProvider);
-    final filteredSalons = _getFilteredSalons();
+    final filteredSalons = _getFilteredSalons(apiState.salons);
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
@@ -201,14 +159,14 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: isDark ? AppColors.darkBorder : const Color(0xFFE0E4EB),
+                        color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
                         width: 1.0,
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: isDark ? AppColors.darkBorder : const Color(0xFFE0E4EB),
+                        color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
                         width: 1.0,
                       ),
                     ),
@@ -244,53 +202,60 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
                           Icon(
                             Icons.storefront_outlined,
                             size: 54,
-                            color: isDark ? AppColors.darkTextSecondary : Colors.black26,
+                            color: context.adaptiveSubtextColor(),
                           ),
                           const SizedBox(height: 12),
                           Text(
                             'Aucun salon trouvé pour "$_searchQuery"',
                             style: TextStyle(
-                              fontSize: 14.5,
+                              fontSize: context.fontSize(14.5),
                               fontWeight: FontWeight.w600,
-                              color: isDark ? AppColors.darkTextSecondary : Colors.black54,
+                              color: context.adaptiveSubtextColor(),
                             ),
                           ),
                         ],
                       ),
                     )
-                  : SingleChildScrollView(
-                      physics: const BouncingScrollPhysics(),
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                      child: Column(
-                        children: [
-                          for (int i = 0; i < filteredSalons.length; i += 2)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Colonne gauche
-                                  Expanded(
-                                    child: _buildSalonCard(
-                                      salon: filteredSalons[i],
-                                      index: i,
+                  : RefreshIndicator(
+                      color: AppColors.figmaActiveGold,
+                      onRefresh: () =>
+                          ref.read(salonsListProvider.notifier).chargerSalons(),
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                            parent: BouncingScrollPhysics()),
+                        padding: EdgeInsets.fromLTRB(
+                            16, 4, 16, context.responsiveValue(compact: 85, standard: 90)),
+                        child: Column(
+                          children: [
+                            for (int i = 0; i < filteredSalons.length; i += 2)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Colonne gauche
+                                    Expanded(
+                                      child: _buildSalonCard(
+                                        salon: filteredSalons[i],
+                                        index: i,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 14),
+                                    const SizedBox(width: 14),
 
-                                  // Colonne droite
-                                  Expanded(
-                                    child: i + 1 < filteredSalons.length
-                                        ? _buildSalonCard(
-                                            salon: filteredSalons[i + 1],
-                                            index: i + 1,
-                                          )
-                                        : const SizedBox.shrink(),
-                                  ),
-                                ],
+                                    // Colonne droite
+                                    Expanded(
+                                      child: i + 1 < filteredSalons.length
+                                          ? _buildSalonCard(
+                                              salon: filteredSalons[i + 1],
+                                              index: i + 1,
+                                            )
+                                          : const SizedBox.shrink(),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
             ),
@@ -308,7 +273,7 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = _selectedSalonIndex == index;
-    final isFavorite = _favoriteSalons.contains(index);
+    final isFavorite = ref.watch(favorisProvider).isSalonFav(salon.slug);
 
     return GestureDetector(
       onTap: () {
@@ -322,13 +287,7 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkSurface : Colors.white,
           borderRadius: BorderRadius.circular(14),
-          // La bordure dorée apparaît au clic de l'utilisateur !
-          border: Border.all(
-            color: isSelected
-                ? AppColors.figmaActiveGold
-                : (isDark ? AppColors.darkBorder : const Color(0xFFE0E4EB)),
-            width: isSelected ? 1.6 : 0.9,
-          ),
+          border: context.symmetricBorder(isSelected: isSelected),
           boxShadow: isDark
               ? null
               : [
@@ -345,21 +304,35 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
             // A. Image de l'intérieur du salon
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
-              child: Image.asset(
-                salon.imagePath,
-                height: 95,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => Container(
-                  height: 95,
-                  color: isDark ? AppColors.darkSurfaceVariant : AppColors.figmaCardBg,
-                  alignment: Alignment.center,
-                  child: Icon(
-                    Icons.storefront_rounded,
-                    color: isDark ? AppColors.darkTextSecondary : Colors.black38,
-                    size: 32,
-                  ),
-                ),
+              child: AspectRatio(
+                aspectRatio: 16 / 9.5,
+                child: salon.imagePath.startsWith('http')
+                    ? Image.network(
+                        salon.imagePath,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Image.asset(
+                          'assets/images/salons_img_0.jpg',
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : Image.asset(
+                        salon.imagePath,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Container(
+                          color: isDark
+                              ? AppColors.darkSurfaceVariant
+                              : AppColors.figmaCardBg,
+                          alignment: Alignment.center,
+                          child: Icon(
+                            Icons.storefront_rounded,
+                            color: context.adaptiveSubtextColor(),
+                            size: 32,
+                          ),
+                        ),
+                      ),
               ),
             ),
 
@@ -373,9 +346,9 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
                   Text(
                     salon.name,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: context.fontSize(13),
                       fontWeight: FontWeight.w800,
-                      color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                      color: context.adaptiveTextColor(),
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -394,17 +367,21 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
                       Text(
                         salon.rating,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: context.fontSize(11),
                           fontWeight: FontWeight.w700,
-                          color: isDark ? AppColors.darkTextPrimary : Colors.black87,
+                          color: context.adaptiveTextColor(),
                         ),
                       ),
                       const SizedBox(width: 3),
-                      Text(
-                        '(${salon.reviews})',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isDark ? AppColors.darkTextSecondary : Colors.black45,
+                      Flexible(
+                        child: Text(
+                          '(${salon.reviews})',
+                          style: TextStyle(
+                            fontSize: context.fontSize(10),
+                            color: context.adaptiveSubtextColor(),
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ],
@@ -429,8 +406,8 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
                               child: Text(
                                 salon.location,
                                 style: TextStyle(
-                                  fontSize: 10.5,
-                                  color: isDark ? AppColors.darkTextSecondary : Colors.black54,
+                                  fontSize: context.fontSize(10.5),
+                                  color: context.adaptiveSubtextColor(),
                                   fontWeight: FontWeight.w500,
                                 ),
                                 maxLines: 1,
@@ -444,13 +421,7 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
                       // Cœur favori interactif
                       GestureDetector(
                         onTap: () {
-                          setState(() {
-                            if (_favoriteSalons.contains(index)) {
-                              _favoriteSalons.remove(index);
-                            } else {
-                              _favoriteSalons.add(index);
-                            }
-                          });
+                          ref.read(favorisProvider.notifier).toggleSalon(salon.slug);
                         },
                         child: Icon(
                           isFavorite
@@ -459,7 +430,7 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
                           size: 18,
                           color: isFavorite
                               ? const Color(0xFFE53935)
-                              : (isDark ? AppColors.darkTextSecondary : Colors.black38),
+                              : context.adaptiveSubtextColor(),
                         ),
                       ),
                     ],

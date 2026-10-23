@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/utils/responsive.dart';
 import '../../../routing/route_names.dart';
+import '../../rendezvous/data/models/rendezvous_panier_model.dart';
+import '../../rendezvous/presentation/providers/rendezvous_panier_provider.dart';
 
-class VarianteDetailScreen extends StatefulWidget {
+class VarianteDetailScreen extends ConsumerStatefulWidget {
   final String title;
   final String price;
   final String image;
   final String salonName;
+  final int? varianteId;
+  final int? serviceId;
+  final String? slugSalon;
+  final int? dureeMinutes;
+  final String? description;
 
   const VarianteDetailScreen({
     super.key,
@@ -15,13 +24,18 @@ class VarianteDetailScreen extends StatefulWidget {
     this.price = '5 000 FCFA',
     this.image = 'assets/images/details_d_une_variante_img_0.png',
     this.salonName = 'Beauty By Dika',
+    this.varianteId,
+    this.serviceId,
+    this.slugSalon,
+    this.dureeMinutes,
+    this.description,
   });
 
   @override
-  State<VarianteDetailScreen> createState() => _VarianteDetailScreenState();
+  ConsumerState<VarianteDetailScreen> createState() => _VarianteDetailScreenState();
 }
 
-class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
+class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
   int _selectedImageIndex = 0;
   bool _isFavorite = false;
   bool _isDescriptionExpanded = false;
@@ -31,12 +45,27 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
   @override
   void initState() {
     super.initState();
-    _images = [
-      widget.image,
-      'assets/images/details_d_une_variante_img_1.png',
-      'assets/images/details_d_une_variante_img_2.png',
-      'assets/images/details_d_une_variante_img_3.png',
-    ];
+    final trimmed = widget.image.trim();
+    _images = trimmed.isNotEmpty ? [trimmed] : ['assets/images/details_d_une_variante_img_0.png'];
+  }
+
+  Widget _buildThumbImage(String path, bool isDark) {
+    if (path.startsWith('http')) {
+      return Image.network(
+        path,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => Container(
+          color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF5EFE6),
+        ),
+      );
+    }
+    return Image.asset(
+      path,
+      fit: BoxFit.cover,
+      errorBuilder: (_, _, _) => Container(
+        color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF5EFE6),
+      ),
+    );
   }
 
   @override
@@ -58,71 +87,67 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                 // 1. Grande photo principale (Hero)
                 _buildHeroImage(isDark),
 
-                const SizedBox(height: 14),
+                if (_images.length > 1) ...[
+                  const SizedBox(height: 14),
 
-                // 2. Ligne de miniatures & indicateur 1/3
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      // Miniatures cliquables
-                      for (int i = 0; i < 3 && i < _images.length; i++)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 10),
-                          child: GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _selectedImageIndex = i;
-                              });
-                            },
-                            child: Container(
-                              width: 58,
-                              height: 58,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _selectedImageIndex == i
-                                      ? AppColors.figmaActiveGold
-                                      : (isDark ? AppColors.darkBorder : const Color(0xFFE0E4EB)),
-                                  width: _selectedImageIndex == i ? 2.0 : 1.0,
-                                ),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(10),
-                                child: Image.asset(
-                                  _images[i],
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Container(
-                                    color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF5EFE6),
+                  // 2. Ligne de miniatures & indicateur
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: [
+                        // Miniatures cliquables
+                        for (int i = 0; i < 3 && i < _images.length; i++)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: GestureDetector(
+                              onTap: () {
+                                setState(() {
+                                  _selectedImageIndex = i;
+                                });
+                              },
+                              child: Container(
+                                width: context.responsiveValue<double>(smallPhone: 50, standard: 58, tablet: 72),
+                                height: context.responsiveValue<double>(smallPhone: 50, standard: 58, tablet: 72),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: _selectedImageIndex == i
+                                        ? AppColors.figmaActiveGold
+                                        : (isDark ? AppColors.darkBorder : const Color(0xFFE0E4EB)),
+                                    width: _selectedImageIndex == i ? 2.0 : 1.0,
                                   ),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: _buildThumbImage(_images[i], isDark),
                                 ),
                               ),
                             ),
                           ),
-                        ),
 
-                      const Spacer(),
+                        const Spacer(),
 
-                      // Indicateur de page (ex. 1/3)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkSurface : AppColors.figmaInputBg,
-                          borderRadius: BorderRadius.circular(10),
-                          border: isDark ? Border.all(color: AppColors.darkBorder) : null,
-                        ),
-                        child: Text(
-                          '${_selectedImageIndex + 1}/${_images.length > 3 ? 3 : _images.length}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? AppColors.darkTextSecondary : Colors.black54,
+                        // Indicateur de page (ex. 1/3)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppColors.darkSurface : AppColors.figmaInputBg,
+                            borderRadius: BorderRadius.circular(10),
+                            border: context.symmetricBorder(),
+                          ),
+                          child: Text(
+                            '${_selectedImageIndex + 1}/${_images.length}',
+                            style: TextStyle(
+                              fontSize: context.fontSize(12),
+                              fontWeight: FontWeight.w700,
+                              color: context.adaptiveSubtextColor(),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ],
 
                 const SizedBox(height: 18),
 
@@ -176,20 +201,24 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                       Text(
                         widget.title,
                         style: TextStyle(
-                          fontSize: 22,
+                          fontSize: context.fontSize(22),
                           fontWeight: FontWeight.w800,
-                          color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                          color: context.adaptiveTextColor(),
                         ),
                       ),
                       const SizedBox(height: 6),
 
                       // Prix
-                      Text(
-                        widget.price,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w900,
-                          color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          widget.price,
+                          style: TextStyle(
+                            fontSize: context.fontSize(20),
+                            fontWeight: FontWeight.w900,
+                            color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -207,17 +236,17 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                           Text(
                             '5',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: context.fontSize(13),
                               fontWeight: FontWeight.w800,
-                              color: isDark ? AppColors.darkTextPrimary : Colors.black87,
+                              color: context.adaptiveTextColor(),
                             ),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '(128 avis vérifiés)',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? AppColors.darkTextSecondary : Colors.black45,
+                              fontSize: context.fontSize(12),
+                              color: context.adaptiveSubtextColor(),
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -227,10 +256,12 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
 
                       // Description remodelée avec "Voir plus"
                       Text(
-                        'Des tresses soignées et élégantes, réalisées avec professionnalisme pour un style durable et confortable. Adaptées à tous types de cheveux avec des finitions impeccables et un confort optimal pour le cuir chevelu.',
+                        (widget.description != null && widget.description!.trim().isNotEmpty)
+                            ? widget.description!
+                            : 'Des tresses soignées et élégantes, réalisées avec professionnalisme pour un style durable et confortable. Adaptées à tous types de cheveux avec des finitions impeccables et un confort optimal pour le cuir chevelu.',
                         style: TextStyle(
-                          fontSize: 13,
-                          color: isDark ? AppColors.darkTextSecondary : const Color(0xFF4A4A4A),
+                          fontSize: context.fontSize(13),
+                          color: context.adaptiveSubtextColor(),
                           height: 1.45,
                           fontWeight: FontWeight.w400,
                         ),
@@ -269,7 +300,7 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                           ? AppColors.darkSurface
                           : const Color(0xFFD3C8BE).withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(16),
-                      border: isDark ? Border.all(color: AppColors.darkBorder) : null,
+                      border: context.symmetricBorder(),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -298,8 +329,8 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                                 Text(
                                   'Durée',
                                   style: TextStyle(
-                                    fontSize: 11,
-                                    color: isDark ? AppColors.darkTextSecondary : Colors.black54,
+                                    fontSize: context.fontSize(11),
+                                    color: context.adaptiveSubtextColor(),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -307,9 +338,9 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                                 Text(
                                   '1h 30',
                                   style: TextStyle(
-                                    fontSize: 13.5,
+                                    fontSize: context.fontSize(13.5),
                                     fontWeight: FontWeight.w800,
-                                    color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                                    color: context.adaptiveTextColor(),
                                   ),
                                 ),
                               ],
@@ -347,8 +378,8 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                                 Text(
                                   'Salon',
                                   style: TextStyle(
-                                    fontSize: 11,
-                                    color: isDark ? AppColors.darkTextSecondary : Colors.black54,
+                                    fontSize: context.fontSize(11),
+                                    color: context.adaptiveSubtextColor(),
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -356,9 +387,9 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                                 Text(
                                   'Au salon',
                                   style: TextStyle(
-                                    fontSize: 13.5,
+                                    fontSize: context.fontSize(13.5),
                                     fontWeight: FontWeight.w800,
-                                    color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                                    color: context.adaptiveTextColor(),
                                   ),
                                 ),
                               ],
@@ -386,7 +417,12 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
-                border: isDark ? const Border(top: BorderSide(color: AppColors.darkBorder)) : null,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
+                    width: 1.0,
+                  ),
+                ),
                 boxShadow: isDark
                     ? null
                     : [
@@ -404,14 +440,37 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                   height: 52,
                   child: ElevatedButton(
                     onPressed: () {
+                      final cleanedPrice = widget.price.replaceAll(RegExp(r'[^0-9.]'), '');
+                      final parsedPrice = double.tryParse(cleanedPrice) ?? 5000.0;
+                      final effectiveVarianteId = widget.varianteId ?? (widget.title.hashCode.abs() % 10000 + 1);
+
+                      ref.read(rendezvousPanierProvider.notifier).ajouterPrestation(
+                            slugSalon: widget.slugSalon ?? 'beauty-by-dika',
+                            salonNom: widget.salonName,
+                            prestation: LignePrestationPanierModel(
+                              varianteId: effectiveVarianteId,
+                              serviceId: widget.serviceId,
+                              serviceNom: widget.title,
+                              varianteNom: widget.title,
+                              prix: parsedPrice,
+                              dureeMinutes: widget.dureeMinutes ?? 45,
+                              imageUrl: widget.image,
+                            ),
+                          );
+
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('${widget.title} ajouté à votre rendez-vous !'),
+                          content: Text('${widget.title} ajouté au panier rendez-vous !'),
                           duration: const Duration(seconds: 2),
                           backgroundColor: AppColors.figmaBrown,
+                          action: SnackBarAction(
+                            label: 'Voir',
+                            textColor: AppColors.figmaActiveGold,
+                            onPressed: () => context.push(RouteNames.panierRendezVous),
+                          ),
                         ),
                       );
-                      context.push(RouteNames.mesRendezVous);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
@@ -426,11 +485,16 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
                       children: const [
                         Icon(Icons.calendar_today_rounded, size: 18),
                         SizedBox(width: 8),
-                        Text(
-                          'Ajouter au rendez-vous',
-                          style: TextStyle(
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w700,
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              'Ajouter au rendez-vous',
+                              style: TextStyle(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -446,25 +510,14 @@ class _VarianteDetailScreenState extends State<VarianteDetailScreen> {
   }
 
   Widget _buildHeroImage(bool isDark) {
+    final heroHeight = context.heightPercent(0.38, min: 240.0, max: 420.0);
     return SizedBox(
-      height: 330,
+      height: heroHeight,
       width: double.infinity,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.asset(
-            _images[_selectedImageIndex],
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => Container(
-              color: const Color(0xFF382319),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.face_retouching_natural_rounded,
-                color: Colors.white38,
-                size: 54,
-              ),
-            ),
-          ),
+          _buildThumbImage(_images[_selectedImageIndex], isDark),
 
           // Dégradé léger en haut pour les boutons
           Container(

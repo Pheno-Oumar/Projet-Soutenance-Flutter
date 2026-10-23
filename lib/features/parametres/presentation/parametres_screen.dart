@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../../core/utils/responsive.dart';
 
 class ParametresScreen extends ConsumerStatefulWidget {
   const ParametresScreen({super.key});
@@ -48,7 +49,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                 Text(
                   'Thème de l\'application',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: ctx.fontSize(18),
                     fontWeight: FontWeight.w800,
                     color: sheetDark ? AppColors.darkTextPrimary : AppColors.figmaBrown,
                   ),
@@ -57,7 +58,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                 Text(
                   'Choisissez votre mode d\'affichage',
                   style: TextStyle(
-                    fontSize: 13,
+                    fontSize: ctx.fontSize(13),
                     color: sheetDark ? AppColors.darkTextSecondary : Colors.grey[600],
                   ),
                 ),
@@ -142,7 +143,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                 Text(
                   'Langue de l\'application',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: ctx.fontSize(18),
                     fontWeight: FontWeight.w800,
                     color: sheetDark ? AppColors.darkTextPrimary : AppColors.figmaBrown,
                   ),
@@ -159,8 +160,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                         side: BorderSide(
                           color: isSelected
                               ? AppColors.figmaActiveGold
-                              : (sheetDark ? AppColors.darkBorder : Colors.grey.shade200),
-                          width: isSelected ? 1.5 : 1.0,
+                              : (sheetDark ? AppColors.darkBorder : AppColors.lightBorder),
+                          width: 1.0,
                         ),
                       ),
                       tileColor: isSelected
@@ -170,6 +171,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                         l,
                         style: TextStyle(
                           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          fontSize: ctx.fontSize(14.5),
                           color: sheetDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                         ),
                       ),
@@ -224,7 +226,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                 Text(
                   'Localisation principale',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: ctx.fontSize(18),
                     fontWeight: FontWeight.w800,
                     color: sheetDark ? AppColors.darkTextPrimary : AppColors.figmaBrown,
                   ),
@@ -241,22 +243,18 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                         side: BorderSide(
                           color: isSelected
                               ? AppColors.figmaActiveGold
-                              : (sheetDark ? AppColors.darkBorder : Colors.grey.shade200),
-                          width: isSelected ? 1.5 : 1.0,
+                              : (sheetDark ? AppColors.darkBorder : AppColors.lightBorder),
+                          width: 1.0,
                         ),
                       ),
                       tileColor: isSelected
                           ? (sheetDark ? AppColors.darkSurfaceVariant : const Color(0xFFF9F4EE))
                           : Colors.transparent,
-                      leading: Icon(
-                        Icons.location_on_rounded,
-                        color: sheetDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
-                        size: 20,
-                      ),
                       title: Text(
                         v,
                         style: TextStyle(
                           fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                          fontSize: ctx.fontSize(14.5),
                           color: sheetDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                         ),
                       ),
@@ -500,8 +498,8 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
           side: BorderSide(
             color: isSelected
                 ? AppColors.figmaActiveGold
-                : (isDark ? AppColors.darkBorder : Colors.grey.shade200),
-            width: isSelected ? 1.5 : 1.0,
+                : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
+            width: 1.0,
           ),
         ),
         tileColor: isSelected
@@ -517,14 +515,14 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
           title,
           style: TextStyle(
             fontWeight: FontWeight.w700,
-            fontSize: 14.5,
+            fontSize: ctx.fontSize(14),
             color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
           ),
         ),
         subtitle: Text(
           subtitle,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: ctx.fontSize(12),
             color: isDark ? AppColors.darkTextSecondary : Colors.grey[600],
           ),
         ),
@@ -537,6 +535,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
   }
 
   Widget _buildParamItem({
+    required BuildContext context,
     required bool isDark,
     required IconData icon,
     required String title,
@@ -575,7 +574,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                   child: Text(
                     title,
                     style: TextStyle(
-                      fontSize: 14.5,
+                      fontSize: context.fontSize(14),
                       fontWeight: FontWeight.w600,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                     ),
@@ -587,7 +586,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                   Text(
                     value,
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: context.fontSize(12.5),
                       color: isDark ? AppColors.darkTextSecondary : Colors.grey[600],
                       fontWeight: FontWeight.w500,
                     ),
@@ -650,7 +649,12 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16,
+          bottom: context.responsiveValue(compact: 70.0, standard: 80.0),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -660,7 +664,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
               child: Text(
                 'Préférences',
                 style: TextStyle(
-                  fontSize: 14.5,
+                  fontSize: context.fontSize(14.5),
                   fontWeight: FontWeight.w800,
                   color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                 ),
@@ -670,10 +674,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? AppColors.darkBorder : const Color(0xFFEFE9E0),
-                  width: 1.0,
-                ),
+                border: context.symmetricBorder(),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
@@ -685,6 +686,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
               child: Column(
                 children: [
                   _buildParamItem(
+                    context: context,
                     isDark: isDark,
                     icon: Icons.language_rounded,
                     title: 'Langue',
@@ -692,6 +694,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                     onTap: () => _showLanguePicker(context),
                   ),
                   _buildParamItem(
+                    context: context,
                     isDark: isDark,
                     icon: isDark ? Icons.dark_mode_rounded : Icons.dark_mode_outlined,
                     title: 'Thème',
@@ -699,6 +702,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
                     onTap: () => _showThemePicker(context),
                   ),
                   _buildParamItem(
+                    context: context,
                     isDark: isDark,
                     icon: Icons.location_on_outlined,
                     title: 'Localisation',
@@ -718,7 +722,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
               child: Text(
                 'Autres',
                 style: TextStyle(
-                  fontSize: 14.5,
+                  fontSize: context.fontSize(14.5),
                   fontWeight: FontWeight.w800,
                   color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                 ),
@@ -728,10 +732,7 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark ? AppColors.darkBorder : const Color(0xFFEFE9E0),
-                  width: 1.0,
-                ),
+                border: context.symmetricBorder(),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
@@ -743,12 +744,14 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
               child: Column(
                 children: [
                   _buildParamItem(
+                    context: context,
                     isDark: isDark,
                     icon: Icons.help_outline_rounded,
                     title: 'Aide & assistance',
                     onTap: () => _showAideModal(context),
                   ),
                   _buildParamItem(
+                    context: context,
                     isDark: isDark,
                     icon: Icons.info_outline_rounded,
                     title: 'À propos de l\'application',

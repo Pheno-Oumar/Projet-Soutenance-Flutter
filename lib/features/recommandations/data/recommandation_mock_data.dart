@@ -118,55 +118,5 @@ class RecommandationMockData {
     joursRestantsAvantProchainDiagnostic: 27,
   );
 
-  static final List<RecommandationCapillaireModel> mockHistorique = [
-    mockDerniereRecommandation,
-    RecommandationCapillaireModel(
-      id: 180,
-      reference: 'REC-2026-C441E9D',
-      dateRecommandation: DateTime.now().subtract(const Duration(days: 38)),
-      typeCheveux: 'CREPUS',
-      texture: 'EPAIS',
-      porosite: 'FORTE',
-      longueur: 'COURTS',
-      densite: 'FORTE',
-      cuirChevelu: 'SEC',
-      etatCheveux: 'ABIME',
-      produitLavage: mockProduitLavage,
-      produitSoinProfond: mockProduitSoinProfond,
-      produitHydratation: mockProduitHydratation,
-      produitFinition: mockProduitFinition,
-      scoreLavage: 92,
-      scoreSoinProfond: 95,
-      scoreHydratation: 91,
-      scoreFinition: 90,
-      scoreGlobal: 92,
-      conseilsPersonnalises:
-          'Phase de transition et de revitalisation suite à un séchage excessif. Priorisez les bains d\'huile tiède avant shampoing.',
-      joursRestantsAvantProchainDiagnostic: 0,
-    ),
-    RecommandationCapillaireModel(
-      id: 150,
-      reference: 'REC-2025-A109B32',
-      dateRecommandation: DateTime.now().subtract(const Duration(days: 75)),
-      typeCheveux: 'FRISES',
-      texture: 'MOYENS',
-      porosite: 'MOYENNE',
-      longueur: 'COURTS',
-      densite: 'MOYENNE',
-      cuirChevelu: 'NORMAL',
-      etatCheveux: 'SAIN',
-      produitLavage: mockProduitLavage,
-      produitSoinProfond: mockProduitSoinProfond,
-      produitHydratation: mockProduitHydratation,
-      produitFinition: mockProduitFinition,
-      scoreLavage: 89,
-      scoreSoinProfond: 90,
-      scoreHydratation: 88,
-      scoreFinition: 87,
-      scoreGlobal: 89,
-      conseilsPersonnalises:
-          'Routine d\'entretien régulier. Vos cheveux sont équilibrés, maintenez l\'hydratation avec des produits sans alcool desséchant.',
-      joursRestantsAvantProchainDiagnostic: 0,
-    ),
-  ];
+  static const List<RecommandationCapillaireModel> mockHistorique = [];
 }

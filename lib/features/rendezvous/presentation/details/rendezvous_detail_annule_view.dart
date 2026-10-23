@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
 import '../../data/models/rendezvous_model.dart';
 import '../widgets/rendezvous_header_widget.dart';
 import '../widgets/rendezvous_info_card.dart';
@@ -35,7 +36,12 @@ class RendezVousDetailAnnuleView extends StatelessWidget {
           // Contenu déroulant
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: context.responsiveValue(compact: 70.0, standard: 80.0),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -43,7 +49,7 @@ class RendezVousDetailAnnuleView extends StatelessWidget {
                   Text(
                     'Prestations',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: context.fontSize(16),
                       fontWeight: FontWeight.w800,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                     ),
@@ -56,7 +62,7 @@ class RendezVousDetailAnnuleView extends StatelessWidget {
                   Text(
                     'Informations',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: context.fontSize(16),
                       fontWeight: FontWeight.w800,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                     ),
@@ -69,7 +75,7 @@ class RendezVousDetailAnnuleView extends StatelessWidget {
                   Text(
                     'Motif',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: context.fontSize(16),
                       fontWeight: FontWeight.w800,
                       color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
                     ),
@@ -81,15 +87,12 @@ class RendezVousDetailAnnuleView extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: isDark ? AppColors.darkSurface : const Color(0xFFFAF7F2),
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: isDark ? AppColors.darkBorder : const Color(0xFFEFE9E0),
-                        width: 1.0,
-                      ),
+                      border: context.symmetricBorder(),
                     ),
                     child: Text(
                       motifText,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: context.fontSize(13),
                         color: isDark ? AppColors.darkTextSecondary : const Color(0xFF333333),
                         height: 1.4,
                       ),
@@ -100,7 +103,7 @@ class RendezVousDetailAnnuleView extends StatelessWidget {
                   // Action optionnelle: Reprendre rendez-vous
                   SizedBox(
                     width: double.infinity,
-                    height: 48,
+                    height: context.responsiveValue(compact: 44.0, standard: 48.0),
                     child: ElevatedButton(
                       onPressed: () {
                         if (rdv.salonSlug != null) {
@@ -116,11 +119,14 @@ class RendezVousDetailAnnuleView extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Prendre un nouveau rendez-vous',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          'Prendre un nouveau rendez-vous',
+                          style: TextStyle(
+                            fontSize: context.fontSize(15),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),

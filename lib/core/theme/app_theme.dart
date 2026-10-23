@@ -77,11 +77,10 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: AppColors.surface,
-        elevation: 1,
-        shadowColor: Colors.black.withValues(alpha: 0.04),
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border, width: 0.8),
+          side: const BorderSide(color: AppColors.border, width: 1.0),
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
@@ -103,7 +102,7 @@ class AppTheme {
           ),
           textStyle: GoogleFonts.outfit(
             fontSize: 15,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -203,11 +202,10 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: AppColors.darkSurface,
-        elevation: 2,
-        shadowColor: Colors.black.withValues(alpha: 0.2),
+        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.darkBorder, width: 0.8),
+          side: const BorderSide(color: AppColors.darkBorder, width: 1.0),
         ),
       ),
       bottomSheetTheme: const BottomSheetThemeData(

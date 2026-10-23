@@ -1,36 +1,55 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/responsive.dart';
+import '../providers/salon_provider.dart';
 
-class SalonAproposTab extends StatefulWidget {
-  final String description;
-  final String phone;
+class SalonAproposTab extends ConsumerStatefulWidget {
+  final String slugSalon;
+  final String salonNom;
 
   const SalonAproposTab({
     super.key,
-    this.description =
-        'Beauty By Dika est un espace moderne et chaleureux, spécialisé dans la coiffure pour femmes et hommes. Notre équipe de professionnels vous offre des prestations de qualité dans un cadre agréable, pour sublimer votre style.',
-    this.phone = '+223 78 99 00 55',
+    this.slugSalon = 'beauty-by-dika',
+    this.salonNom = 'Beauty By Dika',
   });
 
   @override
-  State<SalonAproposTab> createState() => _SalonAproposTabState();
+  ConsumerState<SalonAproposTab> createState() => _SalonAproposTabState();
 }
 
-class _SalonAproposTabState extends State<SalonAproposTab> {
+class _SalonAproposTabState extends ConsumerState<SalonAproposTab> {
   bool _isDescriptionExpanded = false;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final slug = widget.slugSalon;
+
+    final salonAsync = slug.isNotEmpty ? ref.watch(salonDetailProvider(slug)) : null;
+    final horairesAsync = slug.isNotEmpty ? ref.watch(salonHorairesProvider(slug)) : null;
+    final avisAsync = slug.isNotEmpty ? ref.watch(salonAvisProvider(slug)) : null;
+
+    final salon = salonAsync?.value;
+    final description = (salon?.description != null && salon!.description!.isNotEmpty)
+        ? salon.description!
+        : 'Bienvenue chez ${salon?.nom ?? widget.salonNom}. Découvrez nos prestations et réservez votre rendez-vous en ligne.';
+    final phone = (salon?.telephone != null && salon!.telephone!.isNotEmpty)
+        ? salon.telephone!
+        : 'Non renseigné';
+    final address = (salon?.adresse != null && salon!.adresse!.isNotEmpty)
+        ? salon.adresse!
+        : 'Adresse non renseignée';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // 1. Description du salon
         Text(
-          widget.description,
+          description,
           style: TextStyle(
-            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF4A4A4A),
-            fontSize: 13,
+            color: context.adaptiveSubtextColor(),
+            fontSize: context.fontSize(13),
             height: 1.45,
             fontWeight: FontWeight.w400,
           ),
@@ -50,8 +69,8 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
               Text(
                 _isDescriptionExpanded ? 'Voir moins' : 'Voir plus',
                 style: TextStyle(
-                  color: isDark ? AppColors.darkTextPrimary : Colors.black87,
-                  fontSize: 12.5,
+                  color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                  fontSize: context.fontSize(12.5),
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -61,7 +80,7 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
                     ? Icons.keyboard_arrow_up_rounded
                     : Icons.keyboard_arrow_down_rounded,
                 size: 16,
-                color: isDark ? AppColors.darkTextPrimary : Colors.black87,
+                color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
               ),
             ],
           ),
@@ -69,16 +88,13 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
 
         const SizedBox(height: 16),
 
-        // 2. Carte Contact & Itinéraire (Figma Details salons.svg)
+        // 2. Carte Contact & Itinéraire
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkSurface : Colors.white,
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: isDark ? AppColors.darkBorder : const Color(0xFFEFE8DF),
-              width: 1.0,
-            ),
+            border: context.symmetricBorder(),
             boxShadow: isDark
                 ? null
                 : [
@@ -92,7 +108,6 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Colonne Téléphone & Bouton Itinéraire
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,12 +120,40 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
                           size: 16,
                         ),
                         const SizedBox(width: 6),
-                        Text(
-                          widget.phone,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? AppColors.darkTextPrimary : Colors.black87,
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              phone,
+                              style: TextStyle(
+                                fontSize: context.fontSize(13),
+                                fontWeight: FontWeight.w700,
+                                color: context.adaptiveTextColor(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.location_pin,
+                          color: AppColors.figmaBrown,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            address,
+                            style: TextStyle(
+                              fontSize: context.fontSize(11.5),
+                              color: context.adaptiveSubtextColor(),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -119,9 +162,10 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
                     InkWell(
                       onTap: () {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Ouverture de l'itinéraire vers Kalaban..."),
-                            duration: Duration(seconds: 1),
+                          SnackBar(
+                            content: Text("Itinéraire vers $address"),
+                            duration: const Duration(seconds: 1),
+                            backgroundColor: AppColors.figmaBrown,
                           ),
                         );
                       },
@@ -162,21 +206,18 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
 
               const SizedBox(width: 12),
 
-              // Aperçu de la carte avec épingle rouge 📍
+              // Aperçu stylisé de la carte avec épingle
               Container(
-                width: 110,
+                width: context.responsiveValue(compact: 95.0, standard: 110.0),
                 height: 75,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(10),
                   color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFEAEFF5),
-                  border: Border.all(
-                    color: isDark ? AppColors.darkBorder : const Color(0xFFDCE2EB),
-                  ),
+                  border: context.symmetricBorder(),
                 ),
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
-                    // Quadrillage stylisé représentant la carte
                     Positioned.fill(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(9),
@@ -193,7 +234,6 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
                         ),
                       ),
                     ),
-                    // Épingle rouge de géolocalisation
                     const Icon(
                       Icons.location_on_rounded,
                       color: Color(0xFFE53935),
@@ -206,11 +246,128 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
           ),
         ),
 
+        const SizedBox(height: 18),
+
+        // 3. Horaires d'ouverture réels du salon
+        _buildHorairesSection(context, isDark, horairesAsync),
+
         const SizedBox(height: 22),
 
-        // ==============================================================
-        // 3. SECTION COMPLÈTE DES AVIS SUR LE SALON (Demandée par l'utilisateur)
-        // ==============================================================
+        // 4. Section Avis & Évaluations réels
+        _buildAvisSection(context, isDark, avisAsync, salon),
+      ],
+    );
+  }
+
+  Widget _buildHorairesSection(
+    BuildContext context,
+    bool isDark,
+    AsyncValue? horairesAsync,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: context.symmetricBorder(),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.access_time_rounded,
+                color: AppColors.figmaActiveGold,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Horaires d\'ouverture',
+                style: TextStyle(
+                  fontSize: 14.5,
+                  fontWeight: FontWeight.w800,
+                  color: context.adaptiveTextColor(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          if (horairesAsync != null && horairesAsync.hasValue && horairesAsync.value.isNotEmpty)
+            ...horairesAsync.value.map((h) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3.5),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      h.jourFrancais,
+                      style: TextStyle(
+                        fontSize: context.fontSize(12.5),
+                        color: context.adaptiveTextColor(),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: h.actif
+                            ? (isDark ? const Color(0xFF1B3820) : const Color(0xFFE8F5E9))
+                            : (isDark ? const Color(0xFF3E1E1E) : const Color(0xFFFFEBEE)),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        h.plageHoraire,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: h.actif ? const Color(0xFF4CAF50) : const Color(0xFFE53935),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            })
+          else
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Horaires d\'ouverture non renseignés',
+                style: TextStyle(
+                  fontSize: context.fontSize(12.5),
+                  color: context.adaptiveSubtextColor(),
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvisSection(
+    BuildContext context,
+    bool isDark,
+    AsyncValue? avisAsync,
+    dynamic salon,
+  ) {
+    final List apiAvis = (avisAsync != null && avisAsync.hasValue) ? avisAsync.value : [];
+    final count = apiAvis.length;
+
+    double noteMoyenne = count > 0
+        ? (apiAvis.fold<num>(0, (sum, a) => sum + a.note) / count)
+        : (salon != null ? (salon.noteMoyenne as double) : 0.0);
+
+    final double ratio5 = count > 0 ? apiAvis.where((a) => a.note == 5).length / count : 0.0;
+    final double ratio4 = count > 0 ? apiAvis.where((a) => a.note == 4).length / count : 0.0;
+    final double ratio3 = count > 0 ? apiAvis.where((a) => a.note == 3).length / count : 0.0;
+    final double ratio2 = count > 0 ? apiAvis.where((a) => a.note == 2).length / count : 0.0;
+    final double ratio1 = count > 0 ? apiAvis.where((a) => a.note == 1).length / count : 0.0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -222,22 +379,12 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
                 color: isDark ? AppColors.darkTextPrimary : Colors.black,
               ),
             ),
-            InkWell(
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Affichage des 124 avis du salon'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-              child: const Text(
-                'Voir tout (124)',
-                style: TextStyle(
-                  color: AppColors.figmaActiveGold,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                ),
+            Text(
+              count > 0 ? '$count avis vérifié${count > 1 ? "s" : ""}' : '0 avis',
+              style: const TextStyle(
+                color: AppColors.figmaActiveGold,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -251,37 +398,38 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
           decoration: BoxDecoration(
             color: isDark ? AppColors.darkSurface : AppColors.figmaInputBg,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: isDark ? AppColors.darkBorder : const Color(0xFFEFE8DF),
-            ),
+            border: context.symmetricBorder(),
           ),
           child: Row(
             children: [
               Column(
                 children: [
                   Text(
-                    '4.8',
+                    noteMoyenne > 0 ? noteMoyenne.toStringAsFixed(1) : '-',
                     style: TextStyle(
-                      fontSize: 32,
+                      fontSize: context.fontSize(32),
                       fontWeight: FontWeight.w900,
-                      color: isDark ? AppColors.darkTextPrimary : Colors.black87,
+                      color: context.adaptiveTextColor(),
                     ),
                   ),
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.star_rounded, color: AppColors.figmaActiveGold, size: 16),
-                      Icon(Icons.star_rounded, color: AppColors.figmaActiveGold, size: 16),
-                      Icon(Icons.star_rounded, color: AppColors.figmaActiveGold, size: 16),
-                      Icon(Icons.star_rounded, color: AppColors.figmaActiveGold, size: 16),
-                      Icon(Icons.star_half_rounded, color: AppColors.figmaActiveGold, size: 16),
+                      for (int i = 0; i < 5; i++)
+                        Icon(
+                          i < noteMoyenne.floor()
+                              ? Icons.star_rounded
+                              : (i < noteMoyenne ? Icons.star_half_rounded : Icons.star_outline_rounded),
+                          color: AppColors.figmaActiveGold,
+                          size: 16,
+                        ),
                     ],
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    '124 avis vérifiés',
+                    count > 0 ? '$count avis vérifié${count > 1 ? "s" : ""}' : 'Aucun avis vérifié',
                     style: TextStyle(
-                      fontSize: 10.5,
-                      color: isDark ? AppColors.darkTextSecondary : Colors.black45,
+                      fontSize: context.fontSize(10.5),
+                      color: context.adaptiveSubtextColor(),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -291,11 +439,11 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
               Expanded(
                 child: Column(
                   children: [
-                    _buildRatingBar(star: '5★', ratio: 0.82),
-                    _buildRatingBar(star: '4★', ratio: 0.12),
-                    _buildRatingBar(star: '3★', ratio: 0.04),
-                    _buildRatingBar(star: '2★', ratio: 0.01),
-                    _buildRatingBar(star: '1★', ratio: 0.01),
+                    _buildRatingBar(star: '5★', ratio: ratio5),
+                    _buildRatingBar(star: '4★', ratio: ratio4),
+                    _buildRatingBar(star: '3★', ratio: ratio3),
+                    _buildRatingBar(star: '2★', ratio: ratio2),
+                    _buildRatingBar(star: '1★', ratio: ratio1),
                   ],
                 ),
               ),
@@ -305,50 +453,63 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
 
         const SizedBox(height: 16),
 
-        // Liste des personnes qui ont laissé un avis
-        _buildReviewCard(
-          author: 'Aminata Coulibaly',
-          date: 'Il y a 3 jours',
-          rating: 5,
-          prestation: 'Prestation : Box Braids & Perles',
-          comment:
-              'Service absolument impeccable ! Les coiffeuses sont très douces et à l\'écoute. Le salon est ultra propre et moderne. Je recommande à 100% !',
-          initials: 'AC',
-          bgColor: const Color(0xFF382319),
-        ),
-        const SizedBox(height: 12),
-        _buildReviewCard(
-          author: 'Bintou Traoré',
-          date: 'Il y a 1 semaine',
-          rating: 5,
-          prestation: 'Prestation : Soin Kératine Intense',
-          comment:
-              'Mes cheveux ont retrouvé toute leur brillance et douceur. Accueil très chaleureux avec le sourire. C\'est devenu mon salon de référence à Bamako !',
-          initials: 'BT',
-          bgColor: const Color(0xFF232D3F),
-        ),
-        const SizedBox(height: 12),
-        _buildReviewCard(
-          author: 'Oumar Diarra',
-          date: 'Il y a 2 semaines',
-          rating: 4,
-          prestation: 'Prestation : Coupe Dégradé & Barbe',
-          comment:
-              'Très bon barbier, finitions nettes et rapides. Prix très corrects pour le quartier. Je valide !',
-          initials: 'OD',
-          bgColor: const Color(0xFF2C3E2D),
-        ),
-        const SizedBox(height: 12),
-        _buildReviewCard(
-          author: 'Kadidiatou Sanogo',
-          date: 'Il y a 3 semaines',
-          rating: 5,
-          prestation: 'Prestation : Tissage Ouvert Ondulé',
-          comment:
-              'La pose est totalement invisible et tient parfaitement. Toujours satisfaite du résultat.',
-          initials: 'KS',
-          bgColor: const Color(0xFF3B1E2B),
-        ),
+        // Liste des avis réels
+        if (count > 0)
+          ...apiAvis.map((a) {
+            final dateStr = a.dateCreation != null
+                ? 'Le ${a.dateCreation!.day.toString().padLeft(2, '0')}/${a.dateCreation!.month.toString().padLeft(2, '0')}/${a.dateCreation!.year}'
+                : 'Récemment';
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _buildReviewCard(
+                author: a.clientNomComplet,
+                date: dateStr,
+                rating: a.note,
+                prestation: 'Prestation vérifiée',
+                comment: a.commentaire ?? 'Expérience remarquable, équipe très professionnelle !',
+                initials: a.initials,
+                bgColor: const Color(0xFF382319),
+              ),
+            );
+          })
+        else
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurface : AppColors.figmaInputBg.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: context.symmetricBorder(),
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.rate_review_outlined,
+                  color: AppColors.figmaActiveGold,
+                  size: 28,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Aucun avis pour le moment',
+                  style: TextStyle(
+                    fontSize: context.fontSize(14),
+                    fontWeight: FontWeight.w700,
+                    color: context.adaptiveTextColor(),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Soyez le premier client à partager votre expérience !',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: context.fontSize(12),
+                    color: context.adaptiveSubtextColor(),
+                  ),
+                ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -371,7 +532,7 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
-                value: ratio,
+                value: ratio.clamp(0.0, 1.0),
                 minHeight: 5,
                 backgroundColor: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFE5DDD5),
                 valueColor: const AlwaysStoppedAnimation<Color>(
@@ -400,10 +561,7 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFEFE8DF),
-          width: 0.9,
-        ),
+        border: context.symmetricBorder(),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,16 +593,16 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
                     Text(
                       author,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: context.fontSize(13),
                         fontWeight: FontWeight.w700,
-                        color: isDark ? AppColors.darkTextPrimary : Colors.black,
+                        color: context.adaptiveTextColor(),
                       ),
                     ),
                     Text(
                       date,
                       style: TextStyle(
-                        fontSize: 10.5,
-                        color: isDark ? AppColors.darkTextSecondary : Colors.black45,
+                        fontSize: context.fontSize(10.5),
+                        color: context.adaptiveSubtextColor(),
                       ),
                     ),
                   ],
@@ -468,7 +626,7 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
           Text(
             prestation,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: context.fontSize(11),
               fontWeight: FontWeight.w600,
               color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
             ),
@@ -477,8 +635,8 @@ class _SalonAproposTabState extends State<SalonAproposTab> {
           Text(
             comment,
             style: TextStyle(
-              fontSize: 12,
-              color: isDark ? AppColors.darkTextPrimary : Colors.black87,
+              fontSize: context.fontSize(12),
+              color: context.adaptiveTextColor(),
               height: 1.35,
             ),
           ),
