@@ -59,8 +59,20 @@ class _SalonDetailScreenState extends ConsumerState<SalonDetailScreen> {
         ? salon.coverUrl!
         : 'assets/images/detail_img_0.jpg';
     final logoImage = salon?.logoUrl ?? '';
-    final rating = (salon?.noteMoyenne ?? 4.8).toStringAsFixed(1);
-    final reviewsCount = '${salon?.nombreAvis ?? 12} avis';
+    final avisAsync = widget.slug.isNotEmpty ? ref.watch(salonAvisProvider(widget.slug)) : null;
+    final avisList = avisAsync?.valueOrNull ?? [];
+    final hasRealAvis = avisList.isNotEmpty;
+    final realCount = hasRealAvis ? avisList.length : (salon?.nombreAvis ?? 0);
+    final realNote = hasRealAvis
+        ? (avisList.fold<num>(0, (sum, a) => sum + a.note) / avisList.length).toDouble()
+        : (salon?.noteMoyenne ?? 0.0);
+
+    final rating = (realCount > 0 && realNote > 0)
+        ? realNote.toStringAsFixed(1)
+        : 'Nouveau';
+    final reviewsCount = realCount > 0
+        ? '$realCount avis vérifié${realCount > 1 ? "s" : ""}'
+        : '0 avis';
     final status = (salon?.statut ?? true) ? 'Ouvert' : 'Fermé';
     final initials = (salon != null && salon.nom.isNotEmpty)
         ? salon.nom.substring(0, salon.nom.length >= 2 ? 2 : 1).toUpperCase()

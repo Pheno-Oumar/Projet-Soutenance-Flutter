@@ -3,8 +3,13 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/widgets/app_video_player.dart';
+import '../../../core/providers/user_location_provider.dart';
+import '../../../core/widgets/location_permission_card.dart';
 import '../../../routing/route_names.dart';
 import '../../panier/presentation/providers/panier_provider.dart';
 import '../../salon/presentation/providers/salon_provider.dart';
@@ -27,7 +32,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   int? _selectedSalonIndex;
   int? _selectedPrestationIndex;
   int? _selectedStoryIndex;
-  int _selectedDistance = 5;
+  int? _selectedDistance;
+
+  // Suivi des stories déjà visionnées (comme WhatsApp et Snapchat)
+  Set<String> _viewedSalonSlugs = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _loadViewedStories();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      LocationPermissionCard.checkAndShowPrompt(context, ref);
+    });
+  }
+
+  Future<void> _loadViewedStories() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('viewed_story_salons') ?? [];
+      if (mounted) {
+        setState(() {
+          _viewedSalonSlugs = list.toSet();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _markStoryAsViewed(String slug) async {
+    if (_viewedSalonSlugs.contains(slug)) return;
+    setState(() {
+      _viewedSalonSlugs.add(slug);
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList('viewed_story_salons', _viewedSalonSlugs.toList());
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -48,22 +88,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return earthRadiusKm * c;
   }
 
-  double _getSalonDistance(SalonModel salon, {double userLat = 14.6937, double userLng = -17.4441}) {
+  double? _getSalonDistance(SalonModel salon, {double? userLat, double? userLng}) {
     if (salon.distanceKm != null) {
       return salon.distanceKm!;
     }
-    if (salon.latitude != null && salon.longitude != null) {
+    if (salon.latitude != null && salon.longitude != null && userLat != null && userLng != null) {
       return _calculateDistanceKm(userLat, userLng, salon.latitude!, salon.longitude!);
     }
-    return 1.5 + ((salon.id * 3) % 15).toDouble();
+    return null;
   }
 
   void _onSearchSubmitted(String query) {
     final trimmed = query.trim();
+    final distParam = _selectedDistance != null ? '&dist=$_selectedDistance' : '';
     if (trimmed.isNotEmpty) {
-      context.push('${RouteNames.recherche}?q=${Uri.encodeComponent(trimmed)}&dist=$_selectedDistance');
+      context.push('${RouteNames.recherche}?q=${Uri.encodeComponent(trimmed)}$distParam');
     } else {
-      context.push('${RouteNames.recherche}?dist=$_selectedDistance');
+      context.push(_selectedDistance != null ? '${RouteNames.recherche}?dist=$_selectedDistance' : RouteNames.recherche);
     }
   }
 
@@ -110,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Afficher les salons et prestations filtrés par MySQL Spatial :',
+                  'Afficher les salons et prestations à proximité :',
                   style: TextStyle(
                     fontSize: 12.5,
                     color: isDark ? AppColors.darkTextSecondary : Colors.black54,
@@ -120,25 +161,36 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children: [1, 3, 5, 10, 20, 50].map((dist) {
+                  children: <int?>[null, 1, 3, 5, 10, 20, 50].map((dist) {
                     final isSel = _selectedDistance == dist;
                     return InkWell(
                       onTap: () {
                         setState(() => _selectedDistance = dist);
-                        // Appel de l'endpoint Hibernate Spatial / MySQL
-                        ref.read(salonsListProvider.notifier).chargerSalonsNearby(
-                          lat: 14.6937,
-                          lng: -17.4441,
-                          rayonKm: dist.toDouble(),
-                        );
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Rayon défini à $dist km — calcul spatial MySQL'),
+                        if (dist == null) {
+                          ref.read(salonsListProvider.notifier).chargerSalons();
+                          Navigator.pop(ctx);
+                          AppToast.show(
+                            context,
+                            message: 'Tous les salons sont affichés',
+                            type: ToastType.info,
                             duration: const Duration(seconds: 2),
-                            backgroundColor: AppColors.figmaBrown,
-                          ),
-                        );
+                          );
+                        } else {
+                          // Recherche par géolocalisation
+                          final loc = ref.read(userLocationProvider).location;
+                          ref.read(salonsListProvider.notifier).chargerSalonsNearby(
+                            lat: loc?.latitude ?? 12.6392,
+                            lng: loc?.longitude ?? -8.0029,
+                            rayonKm: dist.toDouble(),
+                          );
+                          Navigator.pop(ctx);
+                          AppToast.show(
+                            context,
+                            message: 'Rayon défini à $dist km autour de vous',
+                            type: ToastType.info,
+                            duration: const Duration(seconds: 2),
+                          );
+                        }
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
@@ -155,7 +207,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ),
                         ),
                         child: Text(
-                          '$dist km',
+                          dist == null ? 'Tout' : '$dist km',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -179,8 +231,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final salonsState = ref.watch(salonsListProvider);
+    final userLocation = ref.watch(userLocationProvider).location;
     final storiesGroupsAsync = ref.watch(kadysStoriesGroupsProvider);
-    final storiesMap = {for (var g in (storiesGroupsAsync.valueOrNull ?? [])) g.salonSlug: g};
     final servicesAsync = ref.watch(servicesTransversauxProvider(null));
     final realisationsAsync = ref.watch(realisationsTransversalesProvider);
     final produitsAsync = ref.watch(produitsTransversauxProvider(null));
@@ -208,35 +260,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             PointerDeviceKind.stylus,
           },
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 85),
-          child: Column(
+        child: RefreshIndicator(
+          color: AppColors.figmaBrown,
+          backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
+          onRefresh: () async {
+            ref.invalidate(kadysStoriesGroupsProvider);
+            ref.invalidate(servicesTransversauxProvider(null));
+            ref.invalidate(realisationsTransversalesProvider);
+            ref.invalidate(produitsTransversauxProvider(null));
+            await ref.read(salonsListProvider.notifier).chargerSalons();
+          },
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 85),
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 10),
 
               // ==============================================================
               // 1. CARROUSEL DES STORIES / SALONS (Scroll horizontal fluide)
+              // Seuls les salons avec des stories actives (< 24h) apparaissent.
+              // Tri WhatsApp / Snapchat : non vues en premier, déjà vues au fond.
               // ==============================================================
-              if (salonsState.isLoading && salonsState.salons.isEmpty)
-                _buildStoriesSkeleton()
-              else if (salonsState.salons.isNotEmpty)
-                SingleChildScrollView(
+              () {
+                if (storiesGroupsAsync.isLoading && (storiesGroupsAsync.valueOrNull ?? []).isEmpty) {
+                  return _buildStoriesSkeleton();
+                }
+
+                final activeGroups = (storiesGroupsAsync.valueOrNull ?? [])
+                    .where((g) => g.stories.isNotEmpty)
+                    .toList();
+
+                if (activeGroups.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                // Salons non vus en premier, salons vus en dernier (au fond)
+                final unviewed = activeGroups.where((g) => !_viewedSalonSlugs.contains(g.salonSlug)).toList();
+                final viewed = activeGroups.where((g) => _viewedSalonSlugs.contains(g.salonSlug)).toList();
+                final orderedGroups = [...unviewed, ...viewed];
+
+                return SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   physics: const BouncingScrollPhysics(),
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
                     children: [
-                      for (int i = 0; i < salonsState.salons.length; i++) ...[
+                      for (int i = 0; i < orderedGroups.length; i++) ...[
                         if (i > 0) const SizedBox(width: 14),
                         () {
-                          final salon = salonsState.salons[i];
-                          final group = storiesMap[salon.slug];
-                          final hasStories = group != null && group.stories.isNotEmpty;
-                          final logoUrl = salon.logoUrl ?? group?.salonLogoUrl;
-                          final initials = salon.nom.length >= 2
-                              ? salon.nom.substring(0, 2).toUpperCase()
-                              : salon.nom.toUpperCase();
+                          final group = orderedGroups[i];
+                          final isViewed = _viewedSalonSlugs.contains(group.salonSlug);
+                          final logoUrl = group.salonLogoUrl;
+                          final initials = group.salonNom.length >= 2
+                              ? group.salonNom.substring(0, 2).toUpperCase()
+                              : group.salonNom.toUpperCase();
                           const colors = [
                             Color(0xFF3D291F),
                             Color(0xFF242B35),
@@ -249,14 +328,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           return _buildStoryItem(
                             index: i,
                             label: initials,
-                            sublabel: salon.nom,
+                            sublabel: group.salonNom,
                             logoUrl: logoUrl,
-                            hasActiveStories: hasStories,
+                            hasActiveStories: true,
+                            isViewed: isViewed,
                             bgColor: bgColor,
                             onTap: () {
+                              _markStoryAsViewed(group.salonSlug);
                               setState(() => _selectedStoryIndex = i);
                               context.push(
-                                '${RouteNames.story}?salon=${Uri.encodeComponent(salon.nom)}&initials=$initials&slug=${salon.slug}',
+                                '${RouteNames.story}?salon=${Uri.encodeComponent(group.salonNom)}&initials=$initials&slug=${group.salonSlug}',
                               );
                             },
                           );
@@ -264,7 +345,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ],
                   ),
-                ),
+                );
+              }(),
 
               const SizedBox(height: 14),
 
@@ -358,7 +440,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              '$_selectedDistance km',
+                              _selectedDistance == null ? 'Tout' : '$_selectedDistance km',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w800,
@@ -391,16 +473,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(height: 10),
               () {
-                final displayedSalons = salonsState.salons.where((s) {
-                  final dist = _getSalonDistance(s);
-                  return dist <= _selectedDistance;
-                }).toList();
+                final displayedSalons = _selectedDistance == null
+                    ? salonsState.salons
+                    : salonsState.salons.where((s) {
+                        final dist = _getSalonDistance(
+                          s,
+                          userLat: userLocation?.latitude,
+                          userLng: userLocation?.longitude,
+                        );
+                        return dist != null && dist <= _selectedDistance!;
+                      }).toList();
 
                 if (salonsState.isLoading && displayedSalons.isEmpty) {
                   return _buildHorizontalSkeleton(height: 120, width: 180);
                 } else if (displayedSalons.isEmpty) {
                   return _buildEmptyState(
-                    'Aucun salon dans un rayon de $_selectedDistance km',
+                    _selectedDistance == null
+                        ? 'Aucun salon disponible pour le moment'
+                        : 'Aucun salon dans un rayon de $_selectedDistance km',
                     Icons.storefront_outlined,
                   );
                 }
@@ -419,11 +509,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               : (salon.logoUrl != null && salon.logoUrl!.isNotEmpty)
                                   ? salon.logoUrl!
                                   : '';
-                          final ratingStr = salon.noteMoyenne > 0
+                          final ratingStr = (salon.noteMoyenne > 0 && salon.nombreAvis > 0)
                               ? salon.noteMoyenne.toStringAsFixed(1)
-                              : '-';
-                          final distKm = _getSalonDistance(salon);
-                          final loc = '${distKm.toStringAsFixed(1)} km • ${salon.adresse ?? 'Dakar'}';
+                              : 'Nouveau';
+                          final distKm = _getSalonDistance(
+                            salon,
+                            userLat: userLocation?.latitude,
+                            userLng: userLocation?.longitude,
+                          );
+                          final loc = distKm != null
+                              ? '${distKm.toStringAsFixed(1)} km • ${salon.adresse?.isNotEmpty == true ? salon.adresse! : 'Bamako'}'
+                              : (salon.adresse?.isNotEmpty == true ? salon.adresse! : 'Bamako');
                           return _buildSalonCard(
                             index: i,
                             imagePath: imgUrl,
@@ -450,7 +546,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildSectionHeader(
                 title: 'Meilleurs Services',
                 actionLabel: 'Explorer',
-                onActionTap: () => context.push('${RouteNames.recherche}?dist=$_selectedDistance'),
+                onActionTap: () => context.push(_selectedDistance != null ? '${RouteNames.recherche}?dist=$_selectedDistance' : RouteNames.recherche),
               ),
               const SizedBox(height: 10),
               servicesAsync.when(
@@ -467,9 +563,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         (sal) => sal.slug == s.slugSalon,
                         orElse: () => const SalonModel(id: 0, nom: '', slug: ''),
                       );
-                      if (salon.id != 0) {
-                        final dist = _getSalonDistance(salon);
-                        return dist <= _selectedDistance;
+                      if (salon.id != 0 && _selectedDistance != null) {
+                        final dist = _getSalonDistance(
+                          salon,
+                          userLat: userLocation?.latitude,
+                          userLng: userLocation?.longitude,
+                        );
+                        return dist != null && dist <= _selectedDistance!;
                       }
                     }
                     return true;
@@ -477,7 +577,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                   if (activeServices.isEmpty) {
                     return _buildEmptyState(
-                      'Aucune prestation disponible dans ce rayon',
+                      _selectedDistance == null
+                          ? 'Aucune prestation disponible pour le moment'
+                          : 'Aucune prestation disponible dans ce rayon',
                       Icons.content_cut_rounded,
                     );
                   }
@@ -548,7 +650,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               _buildSectionHeader(
                 title: 'Meilleures Prestations Réalisées',
                 actionLabel: 'Voir tout',
-                onActionTap: () => context.push('${RouteNames.recherche}?dist=$_selectedDistance'),
+                onActionTap: () => context.push(_selectedDistance != null ? '${RouteNames.recherche}?dist=$_selectedDistance' : RouteNames.recherche),
               ),
               const SizedBox(height: 10),
               realisationsAsync.when(
@@ -576,9 +678,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           if (i > 0) const SizedBox(width: 12),
                           () {
                             final r = activeRealisations[i];
-                            final imgUrl = (r.urlVideo != null && r.urlVideo!.isNotEmpty)
+                            final rawUrl = (r.urlVideo != null && r.urlVideo!.isNotEmpty)
                                 ? r.urlVideo!
                                 : '';
+                            final imgUrl = getMediaThumbnailUrl(rawUrl);
                             final stylist =
                                 '${r.coiffeurNomComplet ?? r.salonNom ?? 'Styliste'} • ${r.totalLikes} likes';
                             final priceLabel = r.salonNom ?? 'Prestation salon';
@@ -615,18 +718,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     imageUrl: imgUrl.isNotEmpty ? imgUrl : null,
                                   ),
                                 );
-                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('${r.titre} ajoutée au panier rendez-vous !'),
-                                    duration: const Duration(seconds: 2),
-                                    backgroundColor: AppColors.figmaBrown,
-                                    action: SnackBarAction(
-                                      label: 'Voir le panier',
-                                      textColor: AppColors.figmaActiveGold,
-                                      onPressed: () => context.push(RouteNames.panierRendezVous),
-                                    ),
-                                  ),
+                                AppToast.show(
+                                  context,
+                                  message: '${r.titre} ajoutée au panier rendez-vous !',
+                                  type: ToastType.rdv,
+                                  duration: const Duration(seconds: 2),
+                                  actionLabel: 'Voir',
+                                  onAction: () => context.push(RouteNames.panierRendezVous),
                                 );
                               },
                             );
@@ -699,12 +797,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               },
                               onAddToCart: () {
                                 if (p.isEnRupture) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('${p.nom} est actuellement en rupture de stock.'),
-                                      duration: const Duration(seconds: 2),
-                                      backgroundColor: Colors.redAccent,
-                                    ),
+                                  AppToast.show(
+                                    context,
+                                    message: '${p.nom} est actuellement en rupture de stock.',
+                                    type: ToastType.warning,
+                                    duration: const Duration(seconds: 2),
                                   );
                                   return;
                                 }
@@ -722,27 +819,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     quantite: 1,
                                     imageUrl: p.mainImage,
                                   );
-                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('${p.nom} ajouté au panier ($salon) !'),
-                                      duration: const Duration(seconds: 2),
-                                      backgroundColor: AppColors.figmaBrown,
-                                      action: SnackBarAction(
-                                        label: 'Voir',
-                                        textColor: AppColors.figmaActiveGold,
-                                        onPressed: () => context.push(RouteNames.panier),
-                                      ),
-                                    ),
+                                  AppToast.show(
+                                    context,
+                                    message: '${p.nom} ajouté au panier ($salon) !',
+                                    type: ToastType.cart,
+                                    duration: const Duration(seconds: 2),
+                                    actionLabel: 'Voir',
+                                    onAction: () => context.push(RouteNames.panier),
                                   );
                                 } catch (e) {
-                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Erreur lors de l\'ajout au panier : $e'),
-                                      duration: const Duration(seconds: 2),
-                                      backgroundColor: Colors.redAccent,
-                                    ),
+                                  AppToast.show(
+                                    context,
+                                    message: 'Erreur lors de l\'ajout au panier : $e',
+                                    type: ToastType.error,
+                                    duration: const Duration(seconds: 2),
                                   );
                                 }
                               },
@@ -756,6 +846,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -819,9 +910,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required Color bgColor,
     String? logoUrl,
     bool hasActiveStories = false,
+    bool isViewed = false,
     required VoidCallback onTap,
   }) {
     final isSelected = _selectedStoryIndex == index;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final avatarSize = context.responsiveValue<double>(
       smallPhone: 52,
       standard: 58,
@@ -842,7 +935,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 height: avatarSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  gradient: hasActiveStories
+                  gradient: (hasActiveStories && !isViewed)
                       ? const LinearGradient(
                           colors: [
                             AppColors.figmaActiveGold,
@@ -853,21 +946,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           end: Alignment.bottomRight,
                         )
                       : null,
-                  border: hasActiveStories
-                      ? null
-                      : Border.all(
-                          color: isSelected
-                              ? AppColors.figmaActiveGold
-                              : const Color(0xFFD4AF37),
-                          width: isSelected ? 2.5 : 1.5,
-                        ),
+                  border: isViewed
+                      ? Border.all(
+                          color: isDark ? Colors.white30 : const Color(0xFFB0B0B0),
+                          width: 1.6,
+                        )
+                      : (hasActiveStories
+                          ? null
+                          : Border.all(
+                              color: isSelected
+                                  ? AppColors.figmaActiveGold
+                                  : const Color(0xFFD4AF37),
+                              width: isSelected ? 2.5 : 1.5,
+                            )),
                 ),
                 padding: const EdgeInsets.all(2.5),
                 child: Container(
                   decoration: BoxDecoration(
                     color: bgColor,
                     shape: BoxShape.circle,
-                    border: hasActiveStories
+                    border: (hasActiveStories && !isViewed)
                         ? Border.all(color: Colors.black, width: 1.5)
                         : null,
                   ),
@@ -891,7 +989,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       : Text(
                           label,
                           style: TextStyle(
-                            color: hasActiveStories ? AppColors.figmaBadgeGold : Colors.white,
+                            color: isViewed
+                                ? Colors.white70
+                                : (hasActiveStories ? AppColors.figmaBadgeGold : Colors.white),
                             fontSize: 12.5,
                             fontWeight: FontWeight.w800,
                           ),
@@ -910,7 +1010,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: context.adaptiveSubtextColor(),
+                  color: isViewed
+                      ? (isDark ? Colors.white38 : Colors.black38)
+                      : context.adaptiveSubtextColor(),
                 ),
                 maxLines: 1,
               ),
@@ -1381,8 +1483,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         );
 
     if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+      final effectiveUrl = getMediaThumbnailUrl(resolveMediaUrl(pathOrUrl));
       return Image.network(
-        pathOrUrl,
+        effectiveUrl,
         width: width,
         height: height,
         fit: fit,
@@ -1441,7 +1544,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ==============================================================
   Widget _buildStoriesSkeleton() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: List.generate(
@@ -1462,7 +1567,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildHorizontalSkeleton({required double height, required double width}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: List.generate(

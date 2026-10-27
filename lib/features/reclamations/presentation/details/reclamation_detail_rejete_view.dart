@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_toast.dart';
 import '../../data/models/reclamation_model.dart';
 import '../providers/reclamation_provider.dart';
 import '../widgets/reclamation_detail_header_card.dart';
@@ -53,11 +54,10 @@ class ReclamationDetailRejeteView extends ConsumerWidget {
               Navigator.pop(ctx);
               await ref.read(mesReclamationsProvider.notifier).relancerReclamation(reclamation.id);
               if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Votre réclamation a été relancée avec succès.'),
-                    backgroundColor: Color(0xFF2E7D32),
-                  ),
+                AppToast.show(
+                  context,
+                  message: 'Votre réclamation a été relancée avec succès.',
+                  type: ToastType.success,
                 );
                 Navigator.pop(context);
               }

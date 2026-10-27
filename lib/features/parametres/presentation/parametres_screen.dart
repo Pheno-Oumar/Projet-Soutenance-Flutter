@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/theme_provider.dart';
 import '../../../core/utils/responsive.dart';
+import 'widgets/rgpd_export_sheet.dart';
+import 'widgets/rgpd_suppression_sheet.dart';
 
 class ParametresScreen extends ConsumerStatefulWidget {
   const ParametresScreen({super.key});
@@ -478,6 +480,14 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
     );
   }
 
+  void _showRgpdExportSheet(BuildContext context) {
+    RgpdExportSheet.show(context);
+  }
+
+  void _showRgpdSuppressionSheet(BuildContext context) {
+    RgpdSuppressionSheet.show(context);
+  }
+
   Widget _buildRadioTile<T>({
     required BuildContext ctx,
     required bool isDark,
@@ -716,7 +726,56 @@ class _ParametresScreenState extends ConsumerState<ParametresScreen> {
 
             const SizedBox(height: 24),
 
-            // 2. SECTION AUTRES
+            // 2. SECTION CONFIDENTIALITÉ & RGPD
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 8),
+              child: Text(
+                'Confidentialité & Données personnelles (RGPD)',
+                style: TextStyle(
+                  fontSize: context.fontSize(14.5),
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+                ),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: context.symmetricBorder(),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.02),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  _buildParamItem(
+                    context: context,
+                    isDark: isDark,
+                    icon: Icons.file_download_outlined,
+                    title: 'Exporter mes données',
+                    value: 'Portabilité',
+                    onTap: () => _showRgpdExportSheet(context),
+                  ),
+                  _buildParamItem(
+                    context: context,
+                    isDark: isDark,
+                    icon: Icons.person_remove_outlined,
+                    title: 'Supprimer mon compte & Anonymisation',
+                    showDivider: false,
+                    onTap: () => _showRgpdSuppressionSheet(context),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // 3. SECTION AUTRES
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 8),
               child: Text(

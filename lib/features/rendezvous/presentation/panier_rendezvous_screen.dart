@@ -21,22 +21,7 @@ class PanierRendezVousScreen extends ConsumerStatefulWidget {
 }
 
 class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen> {
-  final Map<String, TextEditingController> _notesControllers = {};
-
-  @override
-  void dispose() {
-    for (final c in _notesControllers.values) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
-  TextEditingController _getNotesController(String slug, String? initialValue) {
-    if (!_notesControllers.containsKey(slug)) {
-      _notesControllers[slug] = TextEditingController(text: initialValue ?? '');
-    }
-    return _notesControllers[slug]!;
-  }
+  int _selectedSalonIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -46,28 +31,36 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
     final authState = ref.watch(authStateProvider);
     final paniers = state.paniers;
 
+    if (_selectedSalonIndex >= paniers.length) {
+      _selectedSalonIndex = 0;
+    }
+    final currentSalon = paniers.isNotEmpty ? paniers[_selectedSalonIndex] : null;
+
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
         title: Text(
-          'Panier Rendez-vous',
+          'Mon Panier Rendez-vous',
           style: TextStyle(
-            fontSize: context.fontSize(18),
+            fontSize: context.fontSize(17),
             fontWeight: FontWeight.w700,
           ),
         ),
         actions: [
           if (paniers.isNotEmpty)
             IconButton(
-              tooltip: 'Vider le panier rendez-vous',
-              icon: const Icon(Icons.delete_sweep_outlined),
+              tooltip: 'Vider le panier',
+              icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent),
               onPressed: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
                   builder: (ctx) => AlertDialog(
                     title: const Text('Vider le panier rendez-vous'),
                     content: const Text(
-                      'Voulez-vous retirer toutes les prestations sélectionnées de vos paniers ?',
+                      'Voulez-vous retirer toutes les prestations de vos paniers ?',
                     ),
                     actions: [
                       TextButton(
@@ -85,6 +78,7 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                   for (final p in List.of(paniers)) {
                     await notifier.viderSalon(p.slugSalon);
                   }
+                  setState(() => _selectedSalonIndex = 0);
                 }
               },
             ),
@@ -94,25 +88,36 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
           ? const Center(child: CircularProgressIndicator())
           : paniers.isEmpty
               ? _buildEmptyState(context, isDark)
-              : ListView.separated(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: context.responsiveValue(compact: 12.0, standard: 16.0),
-                    vertical: 14.0,
-                  ),
-                  itemCount: paniers.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 18),
-                  itemBuilder: (context, index) {
-                    final salonPanier = paniers[index];
-                    return _buildSalonRdvCard(
-                      context,
-                      salonPanier,
-                      isDark,
-                      notifier,
-                      authState.isAuthenticated,
-                      state.isValidating,
-                    );
-                  },
+              : Column(
+                  children: [
+                    if (paniers.length > 1)
+                      _buildSalonSelectorTabs(context, paniers, isDark),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: context.responsiveValue(compact: 12.0, standard: 16.0),
+                          vertical: 14.0,
+                        ),
+                        child: _buildSalonRdvCard(
+                          context,
+                          currentSalon!,
+                          isDark,
+                          notifier,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
+      bottomNavigationBar: (paniers.isEmpty || state.isLoading || currentSalon == null)
+          ? null
+          : _buildStickyBottomValidationBar(
+              context,
+              currentSalon,
+              isDark,
+              notifier,
+              authState.isAuthenticated,
+              state.isValidating,
+            ),
     );
   }
 
@@ -124,8 +129,8 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 90,
-              height: 90,
+              width: 80,
+              height: 80,
               decoration: BoxDecoration(
                 color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
                     .withValues(alpha: 0.12),
@@ -133,13 +138,13 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
               ),
               child: Icon(
                 Icons.calendar_month_outlined,
-                size: 46,
+                size: 42,
                 color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             Text(
-              'Aucune prestation sélectionnée',
+              'Votre panier est vide',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: context.fontSize(18),
@@ -147,9 +152,9 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                 color: context.adaptiveTextColor(),
               ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             Text(
-              'Parcourez les salons et ajoutez des coiffures ou des soins à votre panier rendez-vous pour planifier votre venue.',
+              'Ajoutez des prestations depuis un salon pour planifier votre rendez-vous.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: context.fontSize(13.5),
@@ -157,17 +162,225 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                 height: 1.4,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             ElevatedButton.icon(
-              icon: const Icon(Icons.storefront_outlined),
+              icon: const Icon(Icons.storefront_outlined, size: 18),
               label: const Text('Découvrir les salons'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.figmaBrown,
                 foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () => context.go('/salons'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSalonSelectorTabs(
+    BuildContext context,
+    List<SalonRendezVousPanierModel> paniers,
+    bool isDark,
+  ) {
+    return Container(
+      width: double.infinity,
+      color: isDark ? AppColors.darkSurface : Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: List.generate(paniers.length, (i) {
+            final p = paniers[i];
+            final isSelected = i == _selectedSalonIndex;
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () => setState(() => _selectedSalonIndex = i),
+                borderRadius: BorderRadius.circular(20),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                        : (isDark ? AppColors.darkSurfaceVariant : AppColors.figmaInputBg),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                          : (isDark ? AppColors.darkBorder : AppColors.border),
+                      width: isSelected ? 1.4 : 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.storefront_outlined,
+                        size: 15,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        p.salonNom,
+                        style: TextStyle(
+                          fontSize: context.fontSize(12.5),
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? Colors.white : context.adaptiveTextColor(),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white.withValues(alpha: 0.25)
+                              : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                                  .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${p.prestations.length}',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStickyBottomValidationBar(
+    BuildContext context,
+    SalonRendezVousPanierModel salon,
+    bool isDark,
+    RendezvousPanierNotifier notifier,
+    bool isAuthenticated,
+    bool isValidating,
+  ) {
+    final hasDate = salon.dateHeurePrevue != null;
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.darkBorder : AppColors.border,
+              width: 0.8,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          salon.salonNom,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: context.fontSize(11.5),
+                            color: context.adaptiveSubtextColor(),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        ' • ${salon.dureeTotaleFormatee}',
+                        style: TextStyle(
+                          fontSize: context.fontSize(11),
+                          color: context.adaptiveSubtextColor(),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${salon.montantTotal.toStringAsFixed(0)} FCFA',
+                    style: TextStyle(
+                      fontSize: context.fontSize(17),
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.figmaBrown,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+              ),
+              onPressed: isValidating
+                  ? null
+                  : () => _validerRendezVousPourSalon(
+                        context,
+                        salon,
+                        notifier,
+                        isAuthenticated,
+                      ),
+              child: isValidating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          hasDate ? Icons.check_circle_outline : Icons.calendar_today_outlined,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          hasDate ? 'Valider le rdv' : 'Choisir & valider',
+                          style: TextStyle(
+                            fontSize: context.fontSize(13),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -180,15 +393,13 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
     SalonRendezVousPanierModel salon,
     bool isDark,
     RendezvousPanierNotifier notifier,
-    bool isAuthenticated,
-    bool isValidating,
   ) {
-    final notesController = _getNotesController(salon.slugSalon, salon.notes);
+    final hasDate = salon.dateHeurePrevue != null;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isDark ? AppColors.darkBorder : AppColors.border,
           width: 0.8,
@@ -204,25 +415,25 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Header Salon
+          // En-tête Salon
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: isDark
                   ? AppColors.darkSurfaceVariant.withValues(alpha: 0.6)
-                  : AppColors.figmaInputBg.withValues(alpha: 0.85),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+                  : AppColors.figmaInputBg.withValues(alpha: 0.8),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
             ),
             child: Row(
               children: [
                 CircleAvatar(
-                  radius: 18,
+                  radius: 17,
                   backgroundColor: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
                   backgroundImage: salon.salonLogo != null && salon.salonLogo!.isNotEmpty
                       ? NetworkImage(salon.salonLogo!)
                       : null,
                   child: salon.salonLogo == null || salon.salonLogo!.isEmpty
-                      ? const Icon(Icons.store, color: Colors.white, size: 18)
+                      ? const Icon(Icons.store, color: Colors.white, size: 17)
                       : null,
                 ),
                 const SizedBox(width: 10),
@@ -240,48 +451,20 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.schedule,
-                            size: 13,
-                            color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            salon.dureeTotaleFormatee,
-                            style: TextStyle(
-                              fontSize: context.fontSize(12),
-                              color: context.adaptiveSubtextColor(),
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Icon(
-                            Icons.content_cut,
-                            size: 13,
-                            color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${salon.prestations.length} prestation${salon.prestations.length > 1 ? 's' : ''}',
-                            style: TextStyle(
-                              fontSize: context.fontSize(12),
-                              color: context.adaptiveSubtextColor(),
-                            ),
-                          ),
-                        ],
+                      Text(
+                        '${salon.prestations.length} prestation${salon.prestations.length > 1 ? 's' : ''} • Durée : ${salon.dureeTotaleFormatee}',
+                        style: TextStyle(
+                          fontSize: context.fontSize(12),
+                          color: context.adaptiveSubtextColor(),
+                        ),
                       ),
                     ],
                   ),
                 ),
                 IconButton(
-                  tooltip: 'Supprimer ce salon',
+                  tooltip: 'Supprimer',
                   icon: const Icon(Icons.close, size: 20, color: Colors.grey),
-                  onPressed: () async {
-                    await notifier.viderSalon(salon.slugSalon);
-                  },
+                  onPressed: () => notifier.viderSalon(salon.slugSalon),
                 ),
               ],
             ),
@@ -289,7 +472,7 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
 
           // Liste des prestations sélectionnées
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Column(
               children: salon.prestations.map((presta) {
                 return Padding(
@@ -297,8 +480,8 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                   child: Row(
                     children: [
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 38,
+                        height: 38,
                         decoration: BoxDecoration(
                           color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
                               .withValues(alpha: 0.1),
@@ -312,7 +495,7 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => Icon(
                                     Icons.auto_awesome,
-                                    size: 20,
+                                    size: 18,
                                     color: isDark
                                         ? AppColors.figmaActiveGold
                                         : AppColors.figmaBrown,
@@ -321,7 +504,7 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                               )
                             : Icon(
                                 Icons.auto_awesome,
-                                size: 20,
+                                size: 18,
                                 color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
                               ),
                       ),
@@ -343,7 +526,7 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                             Text(
                               '${presta.varianteNom} • ${presta.dureeFormatee}',
                               style: TextStyle(
-                                fontSize: context.fontSize(12),
+                                fontSize: context.fontSize(11.5),
                                 color: context.adaptiveSubtextColor(),
                               ),
                             ),
@@ -358,13 +541,11 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                           color: isDark ? AppColors.figmaActiveGold : AppColors.primaryDark,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       IconButton(
-                        tooltip: 'Retirer cette prestation',
+                        tooltip: 'Retirer',
                         icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
-                        onPressed: () async {
-                          await notifier.retirerPrestation(salon.slugSalon, presta.varianteId);
-                        },
+                        onPressed: () => notifier.retirerPrestation(salon.slugSalon, presta.varianteId),
                       ),
                     ],
                   ),
@@ -375,35 +556,27 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
 
           const Divider(height: 1),
 
-          // Configuration du RDV (Coiffeur + Date & Créneaux en direct + Notes)
+          // 2 Cartes Interactives Claires : Coiffeur & Date/Heure
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Choix du Coiffeur / Styliste
-                Text(
-                  'Coiffeur ou styliste',
-                  style: TextStyle(
-                    fontSize: context.fontSize(13),
-                    fontWeight: FontWeight.w600,
-                    color: context.adaptiveTextColor(),
-                  ),
-                ),
-                const SizedBox(height: 6),
+                // 1. Choix du Coiffeur
                 InkWell(
                   onTap: () => _ouvrirSelecteurCoiffeur(context, salon, notifier),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
-                            .withValues(alpha: 0.35),
+                        color: isDark ? AppColors.darkBorder : AppColors.border,
+                        width: 0.8,
                       ),
-                      borderRadius: BorderRadius.circular(8),
-                      color: (isDark ? AppColors.darkSurfaceVariant : Colors.white)
-                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                      color: isDark
+                          ? AppColors.darkSurfaceVariant.withValues(alpha: 0.4)
+                          : AppColors.figmaInputBg.withValues(alpha: 0.5),
                     ),
                     child: Row(
                       children: [
@@ -425,6 +598,13 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
+                                'Coiffeur ou styliste',
+                                style: TextStyle(
+                                  fontSize: context.fontSize(11),
+                                  color: context.adaptiveSubtextColor(),
+                                ),
+                              ),
+                              Text(
                                 salon.coiffeurNom ?? 'Sans préférence (Premier disponible)',
                                 style: TextStyle(
                                   fontSize: context.fontSize(13),
@@ -433,15 +613,6 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                salon.coiffeurId != null
-                                    ? 'Coiffeur dédié choisi'
-                                    : 'Attribution automatique selon disponibilité',
-                                style: TextStyle(
-                                  fontSize: context.fontSize(11.5),
-                                  color: context.adaptiveSubtextColor(),
-                                ),
                               ),
                             ],
                           ),
@@ -456,38 +627,48 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                   ),
                 ),
 
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
 
-                // 2. Choix de la Date & du Créneau (Issu du backend)
-                Text(
-                  'Date et créneau horaire',
-                  style: TextStyle(
-                    fontSize: context.fontSize(13),
-                    fontWeight: FontWeight.w600,
-                    color: context.adaptiveTextColor(),
-                  ),
-                ),
-                const SizedBox(height: 6),
+                // 2. Choix de la Date & Créneau (Carte très visible avec statut)
                 InkWell(
                   onTap: () => _ouvrirSelecteurDateHeure(context, salon, notifier),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       border: Border.all(
-                        color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
-                            .withValues(alpha: 0.35),
+                        color: hasDate
+                            ? Colors.green.shade400
+                            : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                                .withValues(alpha: 0.6),
+                        width: hasDate ? 1.4 : 1.0,
                       ),
-                      borderRadius: BorderRadius.circular(8),
-                      color: (isDark ? AppColors.darkSurfaceVariant : Colors.white)
-                          .withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(10),
+                      color: hasDate
+                          ? (isDark ? Colors.green.shade900.withValues(alpha: 0.25) : Colors.green.shade50)
+                          : (isDark
+                              ? AppColors.darkSurfaceVariant.withValues(alpha: 0.4)
+                              : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                                  .withValues(alpha: 0.05)),
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.event_available,
-                          size: 20,
-                          color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: hasDate
+                                ? Colors.green.withValues(alpha: 0.15)
+                                : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                                    .withValues(alpha: 0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            hasDate ? Icons.check_circle : Icons.calendar_today_outlined,
+                            size: 18,
+                            color: hasDate
+                                ? Colors.green
+                                : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown),
+                          ),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
@@ -495,138 +676,54 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                salon.dateHeurePrevue != null
-                                    ? _formaterDateHeureFr(salon.dateHeurePrevue!)
-                                    : 'Choisir une date & vérifier les créneaux disponibles',
+                                hasDate ? 'Date & Heure réservées' : 'Date et heure du rendez-vous',
                                 style: TextStyle(
-                                  fontSize: context.fontSize(13),
-                                  fontWeight: FontWeight.w600,
-                                  color: salon.dateHeurePrevue != null
-                                      ? context.adaptiveTextColor()
+                                  fontSize: context.fontSize(11),
+                                  fontWeight: FontWeight.w500,
+                                  color: hasDate
+                                      ? (isDark ? Colors.green.shade300 : Colors.green.shade800)
                                       : context.adaptiveSubtextColor(),
                                 ),
                               ),
+                              const SizedBox(height: 2),
                               Text(
-                                salon.dateHeurePrevue != null
-                                    ? 'Créneau calculé en temps réel par le salon'
-                                    : 'Appuyez pour consulter les disponibilités réelles',
+                                hasDate
+                                    ? _formaterDateHeureFr(salon.dateHeurePrevue!)
+                                    : 'Appuyez pour choisir la date et le créneau',
                                 style: TextStyle(
-                                  fontSize: context.fontSize(11.5),
-                                  color: context.adaptiveSubtextColor(),
+                                  fontSize: context.fontSize(13.5),
+                                  fontWeight: FontWeight.w700,
+                                  color: hasDate
+                                      ? (isDark ? Colors.green.shade200 : Colors.green.shade900)
+                                      : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        Icon(
-                          Icons.edit_calendar_outlined,
-                          size: 16,
-                          color: context.adaptiveSubtextColor(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: hasDate
+                                ? Colors.green.withValues(alpha: 0.15)
+                                : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                                    .withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            hasDate ? 'Modifier' : 'Choisir',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: hasDate
+                                  ? Colors.green
+                                  : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ),
-
-                const SizedBox(height: 12),
-
-                // 3. Notes particulières
-                TextField(
-                  controller: notesController,
-                  onChanged: (text) {
-                    notifier.definirNotes(salon.slugSalon, text);
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Notes ou demandes particulières (facultatif)...',
-                    hintStyle: TextStyle(
-                      fontSize: context.fontSize(12),
-                      color: context.adaptiveSubtextColor(),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(
-                        color: isDark ? AppColors.darkBorder : AppColors.border,
-                      ),
-                    ),
-                    isDense: true,
-                  ),
-                  style: TextStyle(fontSize: context.fontSize(12)),
-                ),
-              ],
-            ),
-          ),
-
-          // Total & Bouton de validation STRICTEMENT POUR CE SALON
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? AppColors.darkSurfaceVariant.withValues(alpha: 0.3)
-                  : AppColors.background.withValues(alpha: 0.6),
-              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total salon (${salon.dureeTotaleFormatee})',
-                      style: TextStyle(
-                        fontSize: context.fontSize(11.5),
-                        color: context.adaptiveSubtextColor(),
-                      ),
-                    ),
-                    Text(
-                      '${salon.montantTotal.toStringAsFixed(0)} FCFA',
-                      style: TextStyle(
-                        fontSize: context.fontSize(16),
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppColors.figmaActiveGold : AppColors.primaryDark,
-                      ),
-                    ),
-                  ],
-                ),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.figmaBrown,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: isValidating
-                      ? null
-                      : () => _validerRendezVousPourSalon(
-                            context,
-                            salon,
-                            notifier,
-                            isAuthenticated,
-                          ),
-                  child: isValidating
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.check_circle_outline, size: 18),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Valider pour ce salon',
-                              style: TextStyle(
-                                fontSize: context.fontSize(13),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
                 ),
               ],
             ),
@@ -636,22 +733,16 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
     );
   }
 
-  // ==========================================
-  // ACTION DE VALIDATION STRICTEMENT PAR SALON
-  // ==========================================
-
   Future<void> _validerRendezVousPourSalon(
     BuildContext context,
     SalonRendezVousPanierModel salon,
     RendezvousPanierNotifier notifier,
     bool isAuthenticated,
   ) async {
-    // 1. Contrôle d'authentification
     if (!isAuthenticated) {
       final action = await AuthGateDialog.show(
         context,
-        message:
-            'Connectez-vous ou créez un compte pour valider votre rendez-vous chez ${salon.salonNom}.',
+        message: 'Connectez-vous pour valider votre rendez-vous chez ${salon.salonNom}.',
       );
       if (action == null || !context.mounted) return;
       final loggedIn = await context.push<bool>(
@@ -660,22 +751,17 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
       if (loggedIn != true || !context.mounted) return;
     }
 
-    // 2. Contrôle de date & heure
     if (salon.dateHeurePrevue == null) {
       final picked = await _ouvrirSelecteurDateHeure(context, salon, notifier);
       if (picked != true) return;
     }
 
-    // Copie de confirmation avant vidage local par le repository
     final salonSnapshot = salon.copyWith();
 
     try {
       final ok = await notifier.validerSalon(salon.slugSalon);
       if (context.mounted && ok) {
-        // Rafraîchir la liste de mes rendez-vous
         ref.invalidate(mesRendezVousProvider);
-
-        // Afficher la modale détaillée de confirmation
         _afficherModaleConfirmation(context, salonSnapshot);
       }
     } catch (e) {
@@ -691,10 +777,6 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
       }
     }
   }
-
-  // ==========================================
-  // SÉLECTEUR DE COIFFEUR (BOTTOM SHEET)
-  // ==========================================
 
   Future<void> _ouvrirSelecteurCoiffeur(
     BuildContext context,
@@ -715,10 +797,6 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
       ),
     );
   }
-
-  // ==========================================
-  // SÉLECTEUR DE DATE & CRÉNEAU ISSU DU BACK-END
-  // ==========================================
 
   Future<bool?> _ouvrirSelecteurDateHeure(
     BuildContext context,
@@ -747,10 +825,6 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
     );
   }
 
-  // ==========================================
-  // MODALE DE CONFIRMATION DU RENDEZ-VOUS
-  // ==========================================
-
   void _afficherModaleConfirmation(
     BuildContext context,
     SalonRendezVousPanierModel salon,
@@ -777,34 +851,33 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 64,
-                height: 64,
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
                   color: Colors.green.withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.check_circle, color: Colors.green, size: 40),
+                child: const Icon(Icons.check_circle, color: Colors.green, size: 38),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               Text(
                 'Rendez-vous confirmé !',
                 style: TextStyle(
-                  fontSize: context.fontSize(20),
+                  fontSize: context.fontSize(19),
                   fontWeight: FontWeight.bold,
                   color: context.adaptiveTextColor(),
                 ),
               ),
               const SizedBox(height: 6),
               Text(
-                'Votre réservation chez ${salon.salonNom} a été transmise avec succès.',
+                'Votre réservation chez ${salon.salonNom} a été enregistrée avec succès.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  fontSize: context.fontSize(13.5),
+                  fontSize: context.fontSize(13),
                   color: context.adaptiveSubtextColor(),
                 ),
               ),
-              const SizedBox(height: 18),
-              // Récapitulatif
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -818,34 +891,17 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                 ),
                 child: Column(
                   children: [
-                    _buildRecapRow(
-                      context,
-                      icon: Icons.store,
-                      label: 'Salon',
-                      valeur: salon.salonNom,
-                    ),
-                    const Divider(height: 16),
-                    _buildRecapRow(
-                      context,
-                      icon: Icons.event,
-                      label: 'Date & Heure',
-                      valeur: dateTexte,
-                    ),
-                    const Divider(height: 16),
+                    _buildRecapRow(context, icon: Icons.store, label: 'Salon', valeur: salon.salonNom),
+                    const Divider(height: 14),
+                    _buildRecapRow(context, icon: Icons.event, label: 'Date & Heure', valeur: dateTexte),
+                    const Divider(height: 14),
                     _buildRecapRow(
                       context,
                       icon: Icons.person_outline,
                       label: 'Coiffeur',
-                      valeur: salon.coiffeurNom ?? 'Sans préférence (Premier disponible)',
+                      valeur: salon.coiffeurNom ?? 'Sans préférence (Automatique)',
                     ),
-                    const Divider(height: 16),
-                    _buildRecapRow(
-                      context,
-                      icon: Icons.content_cut,
-                      label: 'Prestations',
-                      valeur: '${salon.prestations.length} (${salon.dureeTotaleFormatee})',
-                    ),
-                    const Divider(height: 16),
+                    const Divider(height: 14),
                     _buildRecapRow(
                       context,
                       icon: Icons.payments_outlined,
@@ -857,7 +913,7 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
@@ -910,7 +966,7 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
         Text(
           label,
           style: TextStyle(
-            fontSize: context.fontSize(12.5),
+            fontSize: context.fontSize(12),
             color: context.adaptiveSubtextColor(),
           ),
         ),
@@ -920,7 +976,7 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
             valeur,
             textAlign: TextAlign.end,
             style: TextStyle(
-              fontSize: context.fontSize(13),
+              fontSize: context.fontSize(12.5),
               fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
               color: valeurColor ?? context.adaptiveTextColor(),
             ),
@@ -930,26 +986,9 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
     );
   }
 
-  // ==========================================
-  // FORMATAGE DE DATE & HEURE EN FRANÇAIS
-  // ==========================================
-
   static String _formaterDateHeureFr(DateTime dt) {
     const jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
-    const mois = [
-      'Jan',
-      'Fév',
-      'Mar',
-      'Avr',
-      'Mai',
-      'Juin',
-      'Juil',
-      'Août',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Déc'
-    ];
+    const mois = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'];
     final jourNom = jours[dt.weekday - 1];
     final jourNum = dt.day.toString().padLeft(2, '0');
     final moisNom = mois[dt.month - 1];
@@ -960,7 +999,7 @@ class _PanierRendezVousScreenState extends ConsumerState<PanierRendezVousScreen>
 }
 
 // ============================================================================
-// COMPOSANT : MODALE DE SÉLECTION DU COIFFEUR (SALON COIFFEURS PROVIDER)
+// COMPOSANT : SÉLECTION DU COIFFEUR
 // ============================================================================
 
 class _CoiffeurSelectionSheet extends ConsumerWidget {
@@ -983,7 +1022,7 @@ class _CoiffeurSelectionSheet extends ConsumerWidget {
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.75,
+        maxHeight: MediaQuery.of(context).size.height * 0.70,
       ),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
@@ -992,18 +1031,17 @@ class _CoiffeurSelectionSheet extends ConsumerWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Drag handle
           Container(
             width: 40,
             height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            margin: const EdgeInsets.only(top: 10, bottom: 8),
             decoration: BoxDecoration(
               color: Colors.grey.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 Expanded(
@@ -1021,7 +1059,7 @@ class _CoiffeurSelectionSheet extends ConsumerWidget {
                       Text(
                         salonNom,
                         style: TextStyle(
-                          fontSize: context.fontSize(12.5),
+                          fontSize: context.fontSize(12),
                           color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1041,122 +1079,43 @@ class _CoiffeurSelectionSheet extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                // Option 1 : Sans préférence (Premier disponible)
-                _buildCoiffeurTile(
+                _buildOptionTile(
                   context,
                   isDark: isDark,
                   isSelected: selectedCoiffeurId == null,
-                  avatarWidget: CircleAvatar(
-                    radius: 20,
-                    backgroundColor: (isDark
-                            ? AppColors.figmaActiveGold
-                            : AppColors.figmaBrown)
-                        .withValues(alpha: 0.15),
-                    child: Icon(
-                      Icons.auto_awesome,
-                      size: 20,
-                      color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
-                    ),
-                  ),
-                  nom: 'Sans préférence (Premier disponible)',
-                  description:
-                      'Le salon affectera automatiquement le coiffeur le plus adapté le jour J.',
-                  badgeTexte: 'Recommandé',
-                  badgeColor: Colors.blueAccent,
+                  icon: Icons.auto_awesome,
+                  title: 'Sans préférence (Premier disponible)',
+                  subtitle: 'Attribution automatique du meilleur coiffeur disponible.',
                   onTap: () async {
                     await onSelect(null, null);
                     if (context.mounted) Navigator.pop(context);
                   },
                 ),
-
                 const SizedBox(height: 10),
-
-                // Option 2..N : Coiffeurs réels du salon
                 coiffeursAsync.when(
-                  loading: () => Column(
-                    children: List.generate(
-                      2,
-                      (index) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Container(
-                          height: 64,
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.darkSurfaceVariant
-                                : AppColors.figmaInputBg,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      ),
+                  loading: () => const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
                   ),
-                  error: (_, _) => Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Text(
-                      'Information coiffeurs indisponible en ligne pour ce salon.',
-                      style: TextStyle(
-                        fontSize: context.fontSize(12),
-                        color: context.adaptiveSubtextColor(),
-                      ),
-                    ),
-                  ),
+                  error: (_, _) => const SizedBox.shrink(),
                   data: (coiffeurs) {
-                    if (coiffeurs.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(
-                          'Tous les coiffeurs du salon sont disponibles via l\'option "Sans préférence".',
-                          style: TextStyle(
-                            fontSize: context.fontSize(12.5),
-                            color: context.adaptiveSubtextColor(),
-                          ),
-                        ),
-                      );
-                    }
-
                     return Column(
                       children: coiffeurs.map((c) {
                         final idAffectation = c.affectationId ?? c.id;
                         final isSelected = selectedCoiffeurId == idAffectation;
-
                         return Padding(
                           padding: const EdgeInsets.only(top: 8),
-                          child: _buildCoiffeurTile(
+                          child: _buildOptionTile(
                             context,
                             isDark: isDark,
                             isSelected: isSelected,
-                            avatarWidget: CircleAvatar(
-                              radius: 20,
-                              backgroundColor: (isDark
-                                      ? AppColors.figmaActiveGold
-                                      : AppColors.figmaBrown)
-                                  .withValues(alpha: 0.15),
-                              backgroundImage: c.photoProfilUrl != null &&
-                                      c.photoProfilUrl!.isNotEmpty
-                                  ? NetworkImage(c.photoProfilUrl!)
-                                  : null,
-                              child: c.photoProfilUrl == null || c.photoProfilUrl!.isEmpty
-                                  ? Text(
-                                      c.displayName.isNotEmpty
-                                          ? c.displayName[0].toUpperCase()
-                                          : 'C',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: isDark
-                                            ? AppColors.figmaActiveGold
-                                            : AppColors.figmaBrown,
-                                      ),
-                                    )
-                                  : null,
-                            ),
-                            nom: c.displayName,
-                            description: c.biographie?.isNotEmpty == true
+                            avatarUrl: c.photoProfilUrl,
+                            title: c.displayName,
+                            subtitle: c.biographie?.isNotEmpty == true
                                 ? c.biographie!
-                                : (c.anneeExperience > 0
-                                    ? '${c.anneeExperience} ans d\'expérience'
-                                    : 'Coiffeur styliste professionnel'),
-                            badgeTexte: c.available ? 'Disponible' : 'Occupé',
-                            badgeColor: c.available ? Colors.green : Colors.grey,
+                                : (c.anneeExperience > 0 ? '${c.anneeExperience} ans d\'expérience' : 'Styliste professionnel'),
                             onTap: () async {
                               await onSelect(idAffectation, c.displayName);
                               if (context.mounted) Navigator.pop(context);
@@ -1175,15 +1134,14 @@ class _CoiffeurSelectionSheet extends ConsumerWidget {
     );
   }
 
-  Widget _buildCoiffeurTile(
+  Widget _buildOptionTile(
     BuildContext context, {
     required bool isDark,
     required bool isSelected,
-    required Widget avatarWidget,
-    required String nom,
-    required String description,
-    required String badgeTexte,
-    required Color badgeColor,
+    IconData? icon,
+    String? avatarUrl,
+    required String title,
+    required String subtitle,
     required VoidCallback onTap,
   }) {
     return InkWell(
@@ -1200,70 +1158,48 @@ class _CoiffeurSelectionSheet extends ConsumerWidget {
             width: isSelected ? 1.8 : 0.8,
           ),
           color: isSelected
-              ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
-                  .withValues(alpha: 0.08)
+              ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown).withValues(alpha: 0.08)
               : (isDark ? AppColors.darkSurfaceVariant.withValues(alpha: 0.4) : Colors.white),
         ),
         child: Row(
           children: [
-            avatarWidget,
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown).withValues(alpha: 0.15),
+              backgroundImage: avatarUrl != null && avatarUrl.isNotEmpty ? NetworkImage(avatarUrl) : null,
+              child: avatarUrl == null || avatarUrl.isEmpty
+                  ? Icon(icon ?? Icons.person, color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown, size: 18)
+                  : null,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          nom,
-                          style: TextStyle(
-                            fontSize: context.fontSize(14),
-                            fontWeight: FontWeight.w600,
-                            color: context.adaptiveTextColor(),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: badgeColor.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          badgeTexte,
-                          style: TextStyle(
-                            fontSize: context.fontSize(10),
-                            fontWeight: FontWeight.bold,
-                            color: badgeColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 2),
                   Text(
-                    description,
+                    title,
                     style: TextStyle(
-                      fontSize: context.fontSize(12),
+                      fontSize: context.fontSize(13.5),
+                      fontWeight: FontWeight.w600,
+                      color: context.adaptiveTextColor(),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: context.fontSize(11.5),
                       color: context.adaptiveSubtextColor(),
                     ),
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
             Icon(
               isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
-              color: isSelected
-                  ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
-                  : Colors.grey.withValues(alpha: 0.5),
-              size: 22,
+              color: isSelected ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown) : Colors.grey.withValues(alpha: 0.5),
+              size: 20,
             ),
           ],
         ),
@@ -1273,7 +1209,7 @@ class _CoiffeurSelectionSheet extends ConsumerWidget {
 }
 
 // ============================================================================
-// COMPOSANT : MODALE DE SÉLECTION DATE & CRÉNEAUX CALCULÉS PAR LE BACK-END
+// COMPOSANT : SÉLECTION DE DATE & CRÉNEAU AVEC BOUTON FIXE EN BAS
 // ============================================================================
 
 class _DateHeureSelectionSheet extends ConsumerStatefulWidget {
@@ -1321,8 +1257,7 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
         widget.initialDateTime!.day,
       );
     } else {
-      // Par défaut demain
-      _selectedDate = DateTime(now.year, now.month, now.day).add(const Duration(days: 1));
+      _selectedDate = DateTime(now.year, now.month, now.day);
     }
   }
 
@@ -1330,7 +1265,6 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Horaires réguliers du salon pour information
     final horairesAsync = ref.watch(salonHorairesProvider(widget.slugSalon));
     final jourSemaineStr = _nomJourSemaine(_selectedDate.weekday);
     HoraireSalonModel? horaireDuJour;
@@ -1345,7 +1279,6 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
 
     final isSalonFerme = horaireDuJour != null && !horaireDuJour!.actif;
 
-    // CRÉNEAUX CALCULÉS PAR LE BACK-END
     final heureMinStr = _heureMinimale != null
         ? '${_heureMinimale!.hour.toString().padLeft(2, '0')}:${_heureMinimale!.minute.toString().padLeft(2, '0')}:00'
         : null;
@@ -1369,20 +1302,21 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
           // Drag handle
           Container(
             width: 40,
             height: 4,
-            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            margin: const EdgeInsets.only(top: 10, bottom: 6),
             decoration: BoxDecoration(
               color: Colors.grey.withValues(alpha: 0.3),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
+
+          // En-tête de la modale
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Row(
               children: [
                 Expanded(
@@ -1390,7 +1324,7 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Créneaux disponibles (En direct)',
+                        'Choisir votre créneau',
                         style: TextStyle(
                           fontSize: context.fontSize(16),
                           fontWeight: FontWeight.bold,
@@ -1398,9 +1332,9 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                         ),
                       ),
                       Text(
-                        '${widget.salonNom} • Durée totale : ${widget.dureeFormatee}',
+                        '${widget.salonNom} • Durée : ${widget.dureeFormatee}',
                         style: TextStyle(
-                          fontSize: context.fontSize(12.5),
+                          fontSize: context.fontSize(12),
                           color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
                           fontWeight: FontWeight.w500,
                         ),
@@ -1416,120 +1350,56 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
             ),
           ),
           const Divider(height: 1),
-          Flexible(
+
+          // Zone défilable pour la date et les créneaux
+          Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                // Contexte coiffeur & date
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
-                        .withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
-                          .withValues(alpha: 0.3),
-                      width: 0.8,
+                // Sélecteur de date horizontal (14 prochains jours)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '1. Choisissez le jour',
+                      style: TextStyle(
+                        fontSize: context.fontSize(13.5),
+                        fontWeight: FontWeight.w700,
+                        color: context.adaptiveTextColor(),
+                      ),
                     ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        widget.coiffeurId != null ? Icons.person : Icons.auto_awesome,
-                        size: 18,
-                        color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                    TextButton.icon(
+                      icon: const Icon(Icons.calendar_month, size: 16),
+                      label: const Text('Calendrier'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          widget.coiffeurNom != null
-                              ? 'Recherche pour : ${widget.coiffeurNom}'
-                              : 'Recherche : Premier coiffeur disponible',
-                          style: TextStyle(
-                            fontSize: context.fontSize(12.5),
-                            fontWeight: FontWeight.w600,
-                            color: context.adaptiveTextColor(),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 14),
-
-                // 1. Choix du Jour
-                Text(
-                  '1. Choisissez le jour',
-                  style: TextStyle(
-                    fontSize: context.fontSize(13.5),
-                    fontWeight: FontWeight.w600,
-                    color: context.adaptiveTextColor(),
-                  ),
+                      onPressed: _choisirDateCalendrier,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
-                InkWell(
-                  onTap: _choisirDateCalendrier,
-                  borderRadius: BorderRadius.circular(10),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
-                            .withValues(alpha: 0.5),
-                      ),
-                      borderRadius: BorderRadius.circular(10),
-                      color: (isDark ? AppColors.darkSurfaceVariant : AppColors.figmaInputBg)
-                          .withValues(alpha: 0.5),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.calendar_month,
-                          size: 20,
-                          color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            _formaterDateLongue(_selectedDate),
-                            style: TextStyle(
-                              fontSize: context.fontSize(14),
-                              fontWeight: FontWeight.w600,
-                              color: context.adaptiveTextColor(),
-                            ),
-                          ),
-                        ),
-                        TextButton(
-                          onPressed: _choisirDateCalendrier,
-                          style: TextButton.styleFrom(
-                            foregroundColor:
-                                isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
-                            padding: EdgeInsets.zero,
-                            minimumSize: const Size(50, 30),
-                          ),
-                          child: const Text('Changer'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
 
-                const SizedBox(height: 14),
+                // Bandeau des 14 prochains jours
+                _buildHorizontalDaysStrip(isDark),
 
-                // Horaires du salon ou fermeture
+                const SizedBox(height: 12),
+
+                // Alerte horaires du salon
                 if (horaireDuJour != null)
                   Container(
-                    margin: const EdgeInsets.only(bottom: 14),
+                    margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: isSalonFerme
                           ? Colors.orange.withValues(alpha: 0.12)
-                          : Colors.green.withValues(alpha: 0.1),
+                          : Colors.green.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: isSalonFerme ? Colors.orange : Colors.green,
+                        color: isSalonFerme ? Colors.orange : Colors.green.shade400,
                         width: 0.8,
                       ),
                     ),
@@ -1544,12 +1414,12 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                         Expanded(
                           child: Text(
                             isSalonFerme
-                                ? 'Attention : Le salon est habituellement fermé ce jour.'
-                                : 'Horaires du salon : ${horaireDuJour!.plageHoraire}',
+                                ? 'Salon habituellement fermé ce jour.'
+                                : 'Horaires : ${horaireDuJour!.plageHoraire}',
                             style: TextStyle(
-                              fontSize: context.fontSize(12),
+                              fontSize: context.fontSize(11.5),
                               fontWeight: FontWeight.w500,
-                              color: isSalonFerme ? Colors.orange : Colors.green,
+                              color: isSalonFerme ? Colors.orange : Colors.green.shade800,
                             ),
                           ),
                         ),
@@ -1557,7 +1427,7 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                     ),
                   ),
 
-                // 2. Filtre d'heure minimale (Optionnel)
+                // Filtres rapides d'horaire
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1565,112 +1435,81 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                       '2. À partir de quelle heure ?',
                       style: TextStyle(
                         fontSize: context.fontSize(13.5),
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         color: context.adaptiveTextColor(),
                       ),
                     ),
                     if (_heureMinimale != null)
-                      TextButton(
-                        onPressed: () {
+                      GestureDetector(
+                        onTap: () {
                           setState(() {
                             _heureMinimale = null;
                             _selectedCreneau = null;
                           });
                         },
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.redAccent,
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(50, 30),
+                        child: const Text(
+                          'Tous les horaires',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
-                        child: const Text('Effacer'),
                       ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
+
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
-                      _buildHeureMinPill(
-                        label: 'Dès l\'ouverture',
-                        isSelected: _heureMinimale == null,
-                        onTap: () {
-                          setState(() {
-                            _heureMinimale = null;
-                            _selectedCreneau = null;
-                          });
-                        },
-                        isDark: isDark,
-                      ),
+                      _buildHeurePill('Toute la journée', null, isDark),
                       const SizedBox(width: 8),
-                      _buildHeureMinPill(
-                        label: 'Dès 11h00',
-                        isSelected: _heureMinimale?.hour == 11 && _heureMinimale?.minute == 0,
-                        onTap: () {
-                          setState(() {
-                            _heureMinimale = const TimeOfDay(hour: 11, minute: 0);
-                            _selectedCreneau = null;
-                          });
-                        },
-                        isDark: isDark,
-                      ),
+                      _buildHeurePill('Matin dès 10h', const TimeOfDay(hour: 10, minute: 0), isDark),
                       const SizedBox(width: 8),
-                      _buildHeureMinPill(
-                        label: 'Après-midi (14h00)',
-                        isSelected: _heureMinimale?.hour == 14 && _heureMinimale?.minute == 0,
-                        onTap: () {
-                          setState(() {
-                            _heureMinimale = const TimeOfDay(hour: 14, minute: 0);
-                            _selectedCreneau = null;
-                          });
-                        },
-                        isDark: isDark,
-                      ),
+                      _buildHeurePill('Après-midi dès 14h', const TimeOfDay(hour: 14, minute: 0), isDark),
                       const SizedBox(width: 8),
-                      _buildHeureMinPill(
-                        label: 'Fin d\'après-midi (16h00)',
-                        isSelected: _heureMinimale?.hour == 16 && _heureMinimale?.minute == 0,
-                        onTap: () {
-                          setState(() {
-                            _heureMinimale = const TimeOfDay(hour: 16, minute: 0);
-                            _selectedCreneau = null;
-                          });
-                        },
-                        isDark: isDark,
-                      ),
+                      _buildHeurePill('Soir dès 17h', const TimeOfDay(hour: 17, minute: 0), isDark),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
 
-                // 3. Créneaux disponibles retournés par le Back-end
-                Text(
-                  '3. Créneaux disponibles calculés',
-                  style: TextStyle(
-                    fontSize: context.fontSize(13.5),
-                    fontWeight: FontWeight.w600,
-                    color: context.adaptiveTextColor(),
-                  ),
+                // Titre et badges créneaux
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '3. Disponibilités en direct',
+                      style: TextStyle(
+                        fontSize: context.fontSize(13.5),
+                        fontWeight: FontWeight.w700,
+                        color: context.adaptiveTextColor(),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
 
+                // Liste / Grille des créneaux
                 disponibilitesAsync.when(
                   loading: () => Container(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(28),
                     alignment: Alignment.center,
                     child: Column(
                       children: [
                         const SizedBox(
-                          width: 28,
-                          height: 28,
+                          width: 26,
+                          height: 26,
                           child: CircularProgressIndicator(strokeWidth: 2.5),
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'Calcul des créneaux en direct auprès du salon...',
+                          'Recherche des créneaux disponibles...',
                           style: TextStyle(
-                            fontSize: context.fontSize(12.5),
+                            fontSize: context.fontSize(12),
                             color: context.adaptiveSubtextColor(),
                           ),
                         ),
@@ -1678,7 +1517,7 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                     ),
                   ),
                   error: (err, _) => Container(
-                    padding: const EdgeInsets.all(14),
+                    padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10),
@@ -1686,8 +1525,8 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 20),
-                        const SizedBox(width: 10),
+                        const Icon(Icons.error_outline, color: Colors.redAccent, size: 18),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Erreur lors du calcul des créneaux. Veuillez réessayer ou choisir une autre date.',
@@ -1711,45 +1550,24 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                         ),
                         child: Column(
                           children: [
-                            const Icon(
-                              Icons.event_busy_outlined,
-                              size: 36,
-                              color: Colors.orange,
-                            ),
-                            const SizedBox(height: 8),
+                            const Icon(Icons.event_busy_outlined, size: 32, color: Colors.orange),
+                            const SizedBox(height: 6),
                             Text(
                               'Aucun créneau disponible ce jour',
                               style: TextStyle(
-                                fontSize: context.fontSize(14),
+                                fontSize: context.fontSize(13.5),
                                 fontWeight: FontWeight.bold,
                                 color: context.adaptiveTextColor(),
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             Text(
-                              widget.coiffeurNom != null
-                                  ? '${widget.coiffeurNom} n\'a pas de disponibilité suffisante (${widget.dureeFormatee}) pour cette date ou à partir de cette heure. Essayez une autre date ou choisissez « Sans préférence » pour voir d\'autres coiffeurs.'
-                                  : 'Tous les coiffeurs du salon sont occupés pour la durée requise (${widget.dureeFormatee}) à cette date. Veuillez choisir un autre jour ou effacer le filtre horaire.',
+                              'Le salon n\'a pas de disponibilité suffisante (${widget.dureeFormatee}) à cette date. Veuillez choisir un autre jour ci-dessus.',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                fontSize: context.fontSize(12.5),
+                                fontSize: context.fontSize(11.5),
                                 color: context.adaptiveSubtextColor(),
-                                height: 1.4,
                               ),
-                            ),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              icon: const Icon(Icons.edit_calendar, size: 16),
-                              label: const Text('Choisir une autre date'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: isDark
-                                    ? AppColors.figmaActiveGold
-                                    : AppColors.figmaBrown,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                              onPressed: _choisirDateCalendrier,
                             ),
                           ],
                         ),
@@ -1759,7 +1577,10 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1770,23 +1591,23 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                               child: Text(
                                 '${creneaux.length} créneau${creneaux.length > 1 ? 'x' : ''} disponible${creneaux.length > 1 ? 's' : ''}',
                                 style: const TextStyle(
-                                  fontSize: 11.5,
+                                  fontSize: 11,
                                   fontWeight: FontWeight.bold,
                                   color: Colors.green,
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 8),
                             Text(
                               'Durée requise : ${widget.dureeFormatee}',
                               style: TextStyle(
-                                fontSize: context.fontSize(12),
+                                fontSize: context.fontSize(11.5),
                                 color: context.adaptiveSubtextColor(),
                               ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 10),
+
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
@@ -1798,19 +1619,17 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    isSelected
-                                        ? creneau.plageFormatee
-                                        : creneau.heureDebutFormatee,
+                                    creneau.heureDebutFormatee,
+                                    style: TextStyle(
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                    ),
                                   ),
-                                  if (widget.coiffeurId == null && creneau.coiffeurNom != null)
+                                  if (creneau.coiffeurNom != null && widget.coiffeurId == null)
                                     Text(
                                       creneau.coiffeurNom!,
                                       style: TextStyle(
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.normal,
-                                        color: isSelected
-                                            ? Colors.white.withValues(alpha: 0.85)
-                                            : context.adaptiveSubtextColor(),
+                                        fontSize: 9,
+                                        color: isSelected ? Colors.white70 : context.adaptiveSubtextColor(),
                                       ),
                                     ),
                                 ],
@@ -1819,29 +1638,23 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                               backgroundColor: isDark
                                   ? AppColors.darkSurfaceVariant.withValues(alpha: 0.5)
                                   : AppColors.figmaInputBg,
-                              selectedColor:
-                                  isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                              selectedColor: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
                               labelStyle: TextStyle(
-                                fontSize: context.fontSize(12.5),
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                fontSize: context.fontSize(12),
                                 color: isSelected ? Colors.white : context.adaptiveTextColor(),
                               ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                                 side: BorderSide(
                                   color: isSelected
-                                      ? (isDark
-                                          ? AppColors.figmaActiveGold
-                                          : AppColors.figmaBrown)
+                                      ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
                                       : (isDark ? AppColors.darkBorder : AppColors.border),
                                   width: isSelected ? 1.5 : 0.8,
                                 ),
                               ),
                               onSelected: (sel) {
                                 if (sel) {
-                                  setState(() {
-                                    _selectedCreneau = creneau;
-                                  });
+                                  setState(() => _selectedCreneau = creneau);
                                 }
                               },
                             );
@@ -1852,31 +1665,88 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
                   },
                 ),
 
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
 
-                // Bouton de validation
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
+          // =========================================================
+          // BOUTON PERSISTANT FIXÉ EN BAS (STICKY BOTTOM BAR)
+          // =========================================================
+          SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: isDark ? AppColors.darkSurface : Colors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: isDark ? AppColors.darkBorder : AppColors.border,
+                    width: 0.8,
+                  ),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 8,
+                    offset: const Offset(0, -3),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _selectedCreneau != null
+                              ? 'Créneau sélectionné'
+                              : 'Aucun créneau choisi',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: context.adaptiveSubtextColor(),
+                          ),
+                        ),
+                        Text(
+                          _selectedCreneau != null
+                              ? '${_selectedCreneau!.heureDebutFormatee} - ${_selectedCreneau!.heureFinFormatee}'
+                              : 'Touchez une heure ci-dessus',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: _selectedCreneau != null
+                                ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                                : context.adaptiveSubtextColor(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.figmaBrown,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     onPressed: _selectedCreneau == null ? null : _confirmer,
-                    child: Text(
-                      _selectedCreneau != null
-                          ? 'Confirmer : ${_formaterDateCourt(_selectedDate)} de ${_selectedCreneau!.plageFormatee}'
-                          : 'Sélectionnez un créneau ci-dessus',
-                      style: TextStyle(
-                        fontSize: context.fontSize(13.5),
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Valider le rdv',
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5),
+                        ),
+                        SizedBox(width: 6),
+                        Icon(Icons.check, size: 16),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -1884,19 +1754,90 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
     );
   }
 
-  Widget _buildHeureMinPill({
-    required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
-    required bool isDark,
-  }) {
+  Widget _buildHorizontalDaysStrip(bool isDark) {
+    final now = DateTime.now();
+    return SizedBox(
+      height: 68,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: 14,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final day = DateTime(now.year, now.month, now.day).add(Duration(days: index));
+          final isSelected = _selectedDate.year == day.year &&
+              _selectedDate.month == day.month &&
+              _selectedDate.day == day.day;
+
+          final labelJour = index == 0
+              ? 'Auj.'
+              : (index == 1 ? 'Dem.' : _jourCourt(day.weekday));
+
+          return InkWell(
+            onTap: () {
+              setState(() {
+                _selectedDate = day;
+                _selectedCreneau = null;
+              });
+            },
+            borderRadius: BorderRadius.circular(10),
+            child: Container(
+              width: 58,
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                    : (isDark ? AppColors.darkSurfaceVariant.withValues(alpha: 0.5) : AppColors.figmaInputBg),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isSelected
+                      ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                      : (isDark ? AppColors.darkBorder : AppColors.border),
+                  width: isSelected ? 1.5 : 0.8,
+                ),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    labelJour,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                      color: isSelected ? Colors.white : context.adaptiveSubtextColor(),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '${day.day}',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? Colors.white : context.adaptiveTextColor(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildHeurePill(String label, TimeOfDay? time, bool isDark) {
+    final isSelected = _heureMinimale?.hour == time?.hour && _heureMinimale?.minute == time?.minute;
     return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
+      onTap: () {
+        setState(() {
+          _heureMinimale = time;
+          _selectedCreneau = null;
+        });
+      },
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           color: isSelected
               ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
               : (isDark ? AppColors.darkSurfaceVariant : AppColors.figmaInputBg),
@@ -1910,9 +1851,9 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 11.5,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color: isSelected ? Colors.white : (isDark ? Colors.white70 : Colors.black87),
+            color: isSelected ? Colors.white : context.adaptiveTextColor(),
           ),
         ),
       ),
@@ -1958,6 +1899,11 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
     }
   }
 
+  static String _jourCourt(int weekday) {
+    const jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    return jours[weekday - 1];
+  }
+
   static String _nomJourSemaine(int weekday) {
     switch (weekday) {
       case 1:
@@ -1977,38 +1923,5 @@ class _DateHeureSelectionSheetState extends ConsumerState<_DateHeureSelectionShe
       default:
         return 'LUNDI';
     }
-  }
-
-  static String _formaterDateLongue(DateTime dt) {
-    const jours = [
-      'Lundi',
-      'Mardi',
-      'Mercredi',
-      'Jeudi',
-      'Vendredi',
-      'Samedi',
-      'Dimanche'
-    ];
-    const mois = [
-      'janvier',
-      'février',
-      'mars',
-      'avril',
-      'mai',
-      'juin',
-      'juillet',
-      'août',
-      'septembre',
-      'octobre',
-      'novembre',
-      'décembre'
-    ];
-    final j = jours[dt.weekday - 1];
-    final m = mois[dt.month - 1];
-    return '$j ${dt.day} $m ${dt.year}';
-  }
-
-  static String _formaterDateCourt(DateTime dt) {
-    return '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}';
   }
 }

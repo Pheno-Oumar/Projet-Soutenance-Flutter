@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/providers/user_location_provider.dart';
+import '../../../core/services/location_service.dart';
 import '../../compte/presentation/providers/favoris_provider.dart';
 import 'providers/salon_provider.dart';
 
@@ -59,20 +61,30 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
               : nomStr.trim().toUpperCase())
           : 'SL';
 
-      final note = (s.noteMoyenne != null && s.noteMoyenne > 0)
-          ? (s.noteMoyenne as num).toDouble().toStringAsFixed(1)
-          : '4.8';
+      final hasReviews = s.nombreAvis > 0 && s.noteMoyenne > 0;
+      final note = hasReviews ? s.noteMoyenne.toStringAsFixed(1) : 'Nouveau';
+      final avis = hasReviews ? '${s.nombreAvis} avis' : 'Nouveau';
 
-      final avis = s.nombreAvis != null && s.nombreAvis > 0
-          ? '${s.nombreAvis} avis'
-          : 'Nouveau';
+      final userLoc = ref.watch(userLocationProvider).location;
+      String locationStr = s.adresse?.toString() ?? 'Bamako, Mali';
+      if (s.distanceKm != null) {
+        locationStr = '${s.distanceKm!.toStringAsFixed(1)} km • $locationStr';
+      } else if (s.latitude != null && s.longitude != null && userLoc != null) {
+        final dist = LocationService.calculateDistanceKm(
+          userLoc.latitude,
+          userLoc.longitude,
+          s.latitude!,
+          s.longitude!,
+        );
+        locationStr = '${dist.toStringAsFixed(1)} km • $locationStr';
+      }
 
       return SalonItemData(
         name: nomStr,
         imagePath: image,
         rating: note,
         reviews: avis,
-        location: s.adresse?.toString() ?? 'Dakar, Sénégal',
+        location: locationStr,
         slug: s.slug.toString(),
         initials: initials,
       );
@@ -364,26 +376,37 @@ class _SalonListScreenState extends ConsumerState<SalonListScreen> {
                         size: 15,
                       ),
                       const SizedBox(width: 3),
-                      Text(
-                        salon.rating,
-                        style: TextStyle(
-                          fontSize: context.fontSize(11),
-                          fontWeight: FontWeight.w700,
-                          color: context.adaptiveTextColor(),
-                        ),
-                      ),
-                      const SizedBox(width: 3),
-                      Flexible(
-                        child: Text(
-                          '(${salon.reviews})',
+                      if (salon.rating != 'Nouveau') ...[
+                        Text(
+                          salon.rating,
                           style: TextStyle(
-                            fontSize: context.fontSize(10),
-                            color: context.adaptiveSubtextColor(),
+                            fontSize: context.fontSize(11),
+                            fontWeight: FontWeight.w700,
+                            color: context.adaptiveTextColor(),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            '(${salon.reviews})',
+                            style: TextStyle(
+                              fontSize: context.fontSize(10),
+                              color: context.adaptiveSubtextColor(),
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ] else ...[
+                        Text(
+                          'Nouveau',
+                          style: TextStyle(
+                            fontSize: context.fontSize(11),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.figmaActiveGold,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),

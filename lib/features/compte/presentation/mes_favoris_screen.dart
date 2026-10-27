@@ -207,11 +207,10 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                 );
 
             final image = matchedSalon?.coverUrl ?? matchedSalon?.logoUrl ?? logo ?? 'assets/images/favoris_salon_img_0.jpeg';
-            final rating = matchedSalon != null && matchedSalon.noteMoyenne > 0
-                ? matchedSalon.noteMoyenne.toStringAsFixed(1)
-                : '4.8';
-            final avisCount = matchedSalon?.nombreAvis ?? 12;
-            final adresse = matchedSalon?.adresse ?? 'Dakar, Sénégal';
+            final hasReviews = matchedSalon != null && matchedSalon.noteMoyenne > 0 && matchedSalon.nombreAvis > 0;
+            final rating = hasReviews ? matchedSalon.noteMoyenne.toStringAsFixed(1) : 'Nouveau';
+            final avisCount = hasReviews ? matchedSalon.nombreAvis : 0;
+            final adresse = matchedSalon?.adresse ?? 'Bamako, Mali';
 
             return _FavoriSalonData(
               slug: slug,
@@ -234,9 +233,9 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                 slug: s.slug,
                 nom: s.nom,
                 imagePath: s.coverUrl ?? s.logoUrl ?? 'assets/images/favoris_salon_img_0.jpeg',
-                rating: s.noteMoyenne > 0 ? s.noteMoyenne.toStringAsFixed(1) : '4.8',
+                rating: (s.noteMoyenne > 0 && s.nombreAvis > 0) ? s.noteMoyenne.toStringAsFixed(1) : 'Nouveau',
                 avisCount: s.nombreAvis,
-                adresse: s.adresse ?? 'Dakar, Sénégal',
+                adresse: s.adresse ?? 'Bamako, Mali',
               ))
           .toList();
 
@@ -324,22 +323,33 @@ class _MesFavorisScreenState extends ConsumerState<MesFavorisScreen> {
                     children: [
                       const Icon(Icons.star_rounded, size: 14, color: Color(0xFFEBC416)),
                       const SizedBox(width: 4),
-                      Text(
-                        item.rating,
-                        style: TextStyle(
-                          fontSize: context.fontSize(11.5),
-                          fontWeight: FontWeight.w700,
-                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1817),
+                      if (item.rating != 'Nouveau') ...[
+                        Text(
+                          item.rating,
+                          style: TextStyle(
+                            fontSize: context.fontSize(11.5),
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1A1817),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        ' (${item.avisCount} avis)',
-                        style: TextStyle(
-                          fontSize: context.fontSize(11),
-                          color: isDark ? AppColors.darkTextSecondary : const Color(0xFF8C827A),
+                        const SizedBox(width: 2),
+                        Text(
+                          ' (${item.avisCount} avis)',
+                          style: TextStyle(
+                            fontSize: context.fontSize(11),
+                            color: isDark ? AppColors.darkTextSecondary : const Color(0xFF8C827A),
+                          ),
                         ),
-                      ),
+                      ] else ...[
+                        Text(
+                          'Nouveau',
+                          style: TextStyle(
+                            fontSize: context.fontSize(11.5),
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.figmaActiveGold,
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                   const SizedBox(height: 4),

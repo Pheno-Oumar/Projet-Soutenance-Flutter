@@ -27,7 +27,7 @@ class MesRendezVousState {
         map[slug] = SalonItem(
           slug: slug,
           nom: r.salonNom ?? 'Salon de beauté',
-          adresse: r.salonAdresse ?? 'Dakar, Almadies',
+          adresse: r.salonAdresse ?? 'Bamako, Mali',
           logo: r.salonLogo ?? 'assets/images/rdv_tous_0.png',
         );
       }
@@ -43,7 +43,7 @@ class MesRendezVousState {
       orElse: () => SalonItem(
         slug: selectedSalonSlug!,
         nom: 'Salon sélectionné',
-        adresse: 'Dakar',
+        adresse: 'Bamako',
         logo: 'assets/images/rdv_tous_0.png',
       ),
     );

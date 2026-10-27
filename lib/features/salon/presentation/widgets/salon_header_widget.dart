@@ -22,8 +22,8 @@ class SalonHeaderWidget extends StatelessWidget {
     this.location = 'Bamako, Kalaban',
     this.coverImage = 'assets/images/detail_img_0.jpg',
     this.logoImage = 'assets/images/detail_img_1.jpg',
-    this.rating = '4.8',
-    this.reviewsCount = '124 avis',
+    this.rating = 'Nouveau',
+    this.reviewsCount = '0 avis',
     this.status = 'Ouvert',
     this.hours = '08:00-20:00',
     this.initials = 'BD',
@@ -223,7 +223,9 @@ class SalonHeaderWidget extends StatelessWidget {
                           ),
                           const SizedBox(width: 3),
                           Text(
-                            '$rating ($reviewsCount)',
+                            rating == 'Nouveau'
+                                ? 'Nouveau'
+                                : '$rating ($reviewsCount)',
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: context.fontSize(12),

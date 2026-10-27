@@ -10,33 +10,47 @@ import '../../commandes/data/models/commande_model.dart';
 import '../data/models/panier_model.dart';
 import 'providers/panier_provider.dart';
 
-class PanierScreen extends ConsumerWidget {
+class PanierScreen extends ConsumerStatefulWidget {
   const PanierScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PanierScreen> createState() => _PanierScreenState();
+}
+
+class _PanierScreenState extends ConsumerState<PanierScreen> {
+  int _selectedSalonIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final state = ref.watch(panierStateProvider);
     final notifier = ref.read(panierStateProvider.notifier);
     final authState = ref.watch(authStateProvider);
     final paniers = state.paniers;
-    final hasMultipleSalons = paniers.length > 1;
+
+    if (_selectedSalonIndex >= paniers.length) {
+      _selectedSalonIndex = 0;
+    }
+    final currentSalon = paniers.isNotEmpty ? paniers[_selectedSalonIndex] : null;
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : AppColors.background,
       appBar: AppBar(
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
         title: Text(
-          'Mon Panier',
+          'Mon Panier Produits',
           style: TextStyle(
-            fontSize: context.fontSize(18),
+            fontSize: context.fontSize(17),
             fontWeight: FontWeight.w700,
           ),
         ),
         actions: [
           if (paniers.isNotEmpty)
             IconButton(
-              tooltip: 'Vider tous les paniers',
-              icon: const Icon(Icons.delete_sweep_outlined),
+              tooltip: 'Vider le panier',
+              icon: const Icon(Icons.delete_sweep_outlined, color: Colors.redAccent),
               onPressed: () async {
                 final confirm = await showDialog<bool>(
                   context: context,
@@ -57,6 +71,7 @@ class PanierScreen extends ConsumerWidget {
                 );
                 if (confirm == true) {
                   await notifier.viderTous();
+                  setState(() => _selectedSalonIndex = 0);
                 }
               },
             ),
@@ -91,76 +106,39 @@ class PanierScreen extends ConsumerWidget {
                   ),
                 )
               : paniers.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.shopping_bag_outlined,
-                            size: 64,
-                            color: isDark
-                                ? AppColors.darkTextSecondary.withValues(alpha: 0.5)
-                                : AppColors.textMuted.withValues(alpha: 0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Votre panier est vide',
-                            style: TextStyle(
-                              fontSize: context.fontSize(18),
-                              fontWeight: FontWeight.w600,
-                              color: context.adaptiveTextColor(),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Découvrez nos produits capillaires de qualité salon',
-                            style: TextStyle(
-                              fontSize: context.fontSize(13.5),
-                              color: context.adaptiveSubtextColor(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
+                  ? _buildEmptyState(context, isDark)
                   : Column(
                       children: [
+                        if (paniers.length > 1)
+                          _buildSalonSelectorTabs(context, paniers, isDark),
                         Expanded(
-                          child: ListView.separated(
-                            padding: EdgeInsets.fromLTRB(
-                              16,
-                              14,
-                              16,
-                              hasMultipleSalons ? 20 : 100,
+                          child: SingleChildScrollView(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: context.responsiveValue(compact: 12.0, standard: 16.0),
+                              vertical: 14.0,
                             ),
-                            itemCount: paniers.length,
-                            separatorBuilder: (_, index) => const SizedBox(height: 18),
-                            itemBuilder: (itemCtx, index) {
-                              final panier = paniers[index];
-                              return _buildSalonCartCard(
-                                context: context,
-                                panier: panier,
-                                state: state,
-                                isDark: isDark,
-                                notifier: notifier,
-                                isAuthenticated: authState.isAuthenticated,
-                                ref: ref,
-                              );
-                            },
+                            child: _buildSalonCartCard(
+                              context: context,
+                              panier: currentSalon!,
+                              state: state,
+                              isDark: isDark,
+                              notifier: notifier,
+                              isAuthenticated: authState.isAuthenticated,
+                            ),
                           ),
                         ),
-
-                        // Barre inférieure de validation globale (si plusieurs salons)
-                        if (hasMultipleSalons)
-                          _buildGlobalCheckoutBar(
-                            context: context,
-                            state: state,
-                            isDark: isDark,
-                            notifier: notifier,
-                            isAuthenticated: authState.isAuthenticated,
-                            ref: ref,
-                          ),
                       ],
                     ),
+      bottomNavigationBar: (paniers.isEmpty || state.isLoading || currentSalon == null)
+          ? null
+          : _buildStickyBottomValidationBar(
+              context,
+              currentSalon,
+              isDark,
+              notifier,
+              authState.isAuthenticated,
+              state.isValidating,
+            ),
     );
   }
 
@@ -174,212 +152,182 @@ class PanierScreen extends ConsumerWidget {
     required bool isDark,
     required PanierNotifier notifier,
     required bool isAuthenticated,
-    required WidgetRef ref,
   }) {
     final salonTitle = panier.salonNom ?? panier.slugSalon ?? 'Salon de beauté';
-    final isThisSalonValidating = state.isValidating && state.validatingSalonSlug == panier.slugSalon;
-    final isAnyValidating = state.isValidating;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.surface,
+        color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
-          width: 1.0,
+          color: isDark ? AppColors.darkBorder : AppColors.border,
+          width: 0.8,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
             blurRadius: 8,
-            offset: const Offset(0, 2),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // En-tête du salon
+          // En-tête Salon
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: isDark
-                  ? const Color(0xFF26201B)
-                  : AppColors.figmaBrown.withValues(alpha: 0.07),
+                  ? AppColors.darkSurfaceVariant.withValues(alpha: 0.6)
+                  : AppColors.figmaInputBg.withValues(alpha: 0.8),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
             ),
             child: Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
-                        .withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.storefront_rounded,
-                    color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
-                    size: 16,
-                  ),
+                CircleAvatar(
+                  radius: 17,
+                  backgroundColor: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                  child: const Icon(Icons.store, color: Colors.white, size: 17),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    salonTitle,
-                    style: TextStyle(
-                      fontSize: context.fontSize(14),
-                      fontWeight: FontWeight.w800,
-                      color: context.adaptiveTextColor(),
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        salonTitle,
+                        style: TextStyle(
+                          fontSize: context.fontSize(15),
+                          fontWeight: FontWeight.w700,
+                          color: context.adaptiveTextColor(),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${panier.nombreArticles} article${panier.nombreArticles > 1 ? "s" : ""} • Total : ${panier.montantTotal.toStringAsFixed(0)} FCFA',
+                        style: TextStyle(
+                          fontSize: context.fontSize(12),
+                          color: context.adaptiveSubtextColor(),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(
                   tooltip: 'Vider ce salon',
-                  icon: const Icon(Icons.delete_outline_rounded, size: 20),
-                  color: AppColors.error.withValues(alpha: 0.8),
-                  visualDensity: VisualDensity.compact,
-                  onPressed: isAnyValidating
-                      ? null
-                      : () {
-                          if (panier.slugSalon != null) {
-                            notifier.viderPanier(panier.slugSalon!);
-                          }
-                        },
+                  icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                  onPressed: () async {
+                    final confirm = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text('Vider le panier de $salonTitle'),
+                        content: const Text('Voulez-vous retirer tous les articles de ce salon ?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, false),
+                            child: const Text('Annuler'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx, true),
+                            child: const Text('Vider', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+                    if (confirm == true && panier.slugSalon != null) {
+                      await notifier.viderPanier(panier.slugSalon!);
+                    }
+                  },
                 ),
               ],
             ),
           ),
 
-          // Lignes d'articles du salon
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            itemCount: panier.lignes.length,
-            separatorBuilder: (_, index) => Divider(
-              height: 18,
-              color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
+          // Liste des articles du panier
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Column(
+              children: panier.lignes.map((ligne) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6.0),
+                  child: _buildLigneItem(
+                    context: context,
+                    ligne: ligne,
+                    slugSalon: panier.slugSalon ?? '',
+                    isDark: isDark,
+                    notifier: notifier,
+                  ),
+                );
+              }).toList(),
             ),
-            itemBuilder: (context, lIdx) {
-              final ligne = panier.lignes[lIdx];
-              return _buildLigneItem(
-                context: context,
-                ligne: ligne,
-                slugSalon: panier.slugSalon ?? '',
-                isDark: isDark,
-                notifier: notifier,
-              );
-            },
           ),
 
-          // Pied de carte : Sous-total & Bouton "Valider ce salon"
+          const Divider(height: 1),
+
+          // Informations pratiques (Retrait & Paiement)
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 4, 14, 14),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Total salon (${panier.nombreArticles})',
-                      style: TextStyle(
-                        fontSize: context.fontSize(11.5),
-                        color: context.adaptiveSubtextColor(),
-                      ),
-                    ),
-                    Text(
-                      '${panier.montantTotal.toStringAsFixed(0)} FCFA',
-                      style: TextStyle(
-                        fontSize: context.fontSize(16),
-                        fontWeight: FontWeight.w800,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: isDark ? AppColors.darkBorder : AppColors.border,
+                  width: 0.8,
+                ),
+                borderRadius: BorderRadius.circular(10),
+                color: isDark
+                    ? AppColors.darkSurfaceVariant.withValues(alpha: 0.4)
+                    : AppColors.figmaInputBg.withValues(alpha: 0.5),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.store_mall_directory_outlined,
+                        size: 16,
                         color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
                       ),
-                    ),
-                  ],
-                ),
-                ElevatedButton(
-                  onPressed: isAnyValidating
-                      ? null
-                      : () async {
-                          if (!isAuthenticated) {
-                            final action = await AuthGateDialog.show(
-                              context,
-                              salonNom: salonTitle,
-                              message: 'Veuillez vous connecter pour valider la commande de ce salon.',
-                            );
-                            if (action == null || !context.mounted) return;
-                            final loggedIn = await context.push<bool>(
-                              action == 'register' ? RouteNames.register : RouteNames.login,
-                            );
-                            if (loggedIn != true || !context.mounted) return;
-                            await notifier.synchroniserApresConnexion();
-                          }
-
-                          if (panier.slugSalon != null && context.mounted) {
-                            final freshState = ref.read(panierStateProvider);
-                            final freshPanier = freshState.paniers.firstWhere(
-                              (p) => p.slugSalon == panier.slugSalon,
-                              orElse: () => panier,
-                            );
-                            if (freshPanier.lignes.isEmpty) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Le panier de ce salon est vide.'),
-                                  backgroundColor: AppColors.error,
-                                ),
-                              );
-                              return;
-                            }
-                            await _afficherConfirmationSalon(
-                              context: context,
-                              panier: freshPanier,
-                              isDark: isDark,
-                              notifier: notifier,
-                              ref: ref,
-                            );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.figmaActiveGold,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: isThisSalonValidating
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Retrait direct au salon : $salonTitle',
+                          style: TextStyle(
+                            fontSize: context.fontSize(12),
+                            fontWeight: FontWeight.w600,
+                            color: context.adaptiveTextColor(),
                           ),
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.check_circle_outline_rounded, size: 16),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Valider ce salon',
-                              style: TextStyle(
-                                fontSize: context.fontSize(12.5),
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
                         ),
-                ),
-              ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.payments_outlined,
+                        size: 16,
+                        color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Paiement sur place au comptoir ou via Mobile Money',
+                          style: TextStyle(
+                            fontSize: context.fontSize(11.5),
+                            color: context.adaptiveSubtextColor(),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
+
         ],
       ),
     );
@@ -400,32 +348,43 @@ class PanierScreen extends ConsumerWidget {
       children: [
         // Image miniature
         Container(
-          width: 52,
-          height: 52,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF26201B) : AppColors.figmaCardBg,
-            borderRadius: BorderRadius.circular(10),
+            color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                .withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: ligne.imageUrl != null && ligne.imageUrl!.isNotEmpty
-                ? Image.asset(
-                    ligne.imageUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.spa_rounded,
-                      color: AppColors.figmaActiveGold,
-                      size: 24,
-                    ),
-                  )
-                : const Icon(
+            borderRadius: BorderRadius.circular(8),
+            child: (ligne.imageUrl != null && ligne.imageUrl!.isNotEmpty)
+                ? (ligne.imageUrl!.startsWith('http')
+                    ? Image.network(
+                        ligne.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Icon(
+                          Icons.spa_rounded,
+                          size: 20,
+                          color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                        ),
+                      )
+                    : Image.asset(
+                        ligne.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => Icon(
+                          Icons.spa_rounded,
+                          size: 20,
+                          color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                        ),
+                      ))
+                : Icon(
                     Icons.spa_rounded,
-                    color: AppColors.figmaActiveGold,
-                    size: 24,
+                    size: 20,
+                    color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
                   ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
 
         // Détails produit
         Expanded(
@@ -436,27 +395,18 @@ class PanierScreen extends ConsumerWidget {
                 ligne.produitNom,
                 style: TextStyle(
                   fontSize: context.fontSize(13.5),
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   color: context.adaptiveTextColor(),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 2),
               Text(
                 '${ligne.prixUnitaire.toStringAsFixed(0)} FCFA / unité',
                 style: TextStyle(
                   fontSize: context.fontSize(11.5),
                   color: context.adaptiveSubtextColor(),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Sous-total : ${ligne.sousTotal.toStringAsFixed(0)} FCFA',
-                style: TextStyle(
-                  fontSize: context.fontSize(12),
-                  fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.figmaActiveGold : AppColors.primaryDark,
                 ),
               ),
             ],
@@ -466,7 +416,7 @@ class PanierScreen extends ConsumerWidget {
         // Sélecteur de quantité
         Container(
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF2E2620) : const Color(0xFFF3ECE4),
+            color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF3ECE4),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Row(
@@ -489,22 +439,22 @@ class PanierScreen extends ConsumerWidget {
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                   child: Icon(
                     ligne.quantite == 1
                         ? Icons.delete_outline_rounded
                         : Icons.remove_rounded,
-                    size: 16,
+                    size: 15,
                     color: isDark ? Colors.white70 : AppColors.figmaBrown,
                   ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 5),
                 child: Text(
                   '${ligne.quantite}',
                   style: TextStyle(
-                    fontSize: context.fontSize(13),
+                    fontSize: context.fontSize(12.5),
                     fontWeight: FontWeight.w700,
                     color: context.adaptiveTextColor(),
                   ),
@@ -520,10 +470,10 @@ class PanierScreen extends ConsumerWidget {
                 },
                 borderRadius: BorderRadius.circular(8),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                   child: Icon(
                     Icons.add_rounded,
-                    size: 16,
+                    size: 15,
                     color: isDark ? Colors.white70 : AppColors.figmaBrown,
                   ),
                 ),
@@ -531,143 +481,333 @@ class PanierScreen extends ConsumerWidget {
             ],
           ),
         ),
+        const SizedBox(width: 8),
+
+        // Sous-total
+        Text(
+          '${ligne.sousTotal.toStringAsFixed(0)} F',
+          style: TextStyle(
+            fontSize: context.fontSize(13.5),
+            fontWeight: FontWeight.w700,
+            color: isDark ? AppColors.figmaActiveGold : AppColors.primaryDark,
+          ),
+        ),
       ],
     );
   }
 
-  // ==========================================
-  // BARRE INFÉRIEURE : VALIDATION MULTI-SALONS
-  // ==========================================
-  Widget _buildGlobalCheckoutBar({
-    required BuildContext context,
-    required PanierState state,
-    required bool isDark,
-    required PanierNotifier notifier,
-    required bool isAuthenticated,
-    required WidgetRef ref,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.surface,
-        border: Border(
-          top: BorderSide(
-            color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
-            width: 1.0,
-          ),
+  Widget _buildEmptyState(BuildContext context, bool isDark) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                    .withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.shopping_bag_outlined,
+                size: 42,
+                color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+              ),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              'Votre panier est vide',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.fontSize(18),
+                fontWeight: FontWeight.w700,
+                color: context.adaptiveTextColor(),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Découvrez nos produits capillaires de qualité salon et commandez directement.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: context.fontSize(13.5),
+                color: context.adaptiveSubtextColor(),
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.storefront_outlined, size: 18),
+              label: const Text('Découvrir les salons'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.figmaBrown,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              onPressed: () => context.go('/salons'),
+            ),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, -3),
-          ),
-        ],
       ),
-      child: SafeArea(
-        top: false,
+    );
+  }
+
+  Widget _buildSalonSelectorTabs(
+    BuildContext context,
+    List<PanierModel> paniers,
+    bool isDark,
+  ) {
+    return Container(
+      width: double.infinity,
+      color: isDark ? AppColors.darkSurface : Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(paniers.length, (i) {
+            final p = paniers[i];
+            final isSelected = i == _selectedSalonIndex;
+            final salonName = p.salonNom ?? p.slugSalon ?? 'Salon ${i + 1}';
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: InkWell(
+                onTap: () => setState(() => _selectedSalonIndex = i),
+                borderRadius: BorderRadius.circular(20),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                        : (isDark ? AppColors.darkSurfaceVariant : AppColors.figmaInputBg),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                          : (isDark ? AppColors.darkBorder : AppColors.border),
+                      width: isSelected ? 1.4 : 0.8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.storefront_outlined,
+                        size: 15,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        salonName,
+                        style: TextStyle(
+                          fontSize: context.fontSize(12.5),
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? Colors.white : context.adaptiveTextColor(),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? Colors.white.withValues(alpha: 0.25)
+                              : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown)
+                                  .withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          '${p.nombreArticles}',
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.bold,
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStickyBottomValidationBar(
+    BuildContext context,
+    PanierModel salon,
+    bool isDark,
+    PanierNotifier notifier,
+    bool isAuthenticated,
+    bool isValidating,
+  ) {
+    final salonTitle = salon.salonNom ?? salon.slugSalon ?? 'Salon de beauté';
+
+    return SafeArea(
+      top: false,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : Colors.white,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? AppColors.darkBorder : AppColors.border,
+              width: 0.8,
+            ),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+              blurRadius: 10,
+              offset: const Offset(0, -3),
+            ),
+          ],
+        ),
+        child: Row(
           children: [
             Expanded(
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Total général (${state.totalArticles} articles)',
-                    style: TextStyle(
-                      fontSize: context.fontSize(12),
-                      color: context.adaptiveSubtextColor(),
-                    ),
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          salonTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: context.fontSize(11.5),
+                            color: context.adaptiveSubtextColor(),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        ' • ${salon.nombreArticles} article${salon.nombreArticles > 1 ? "s" : ""}',
+                        style: TextStyle(
+                          fontSize: context.fontSize(11),
+                          color: context.adaptiveSubtextColor(),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 2),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '${state.montantTotalGlobal.toStringAsFixed(0)} FCFA',
-                      style: TextStyle(
-                        fontSize: context.fontSize(19),
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppColors.figmaActiveGold : AppColors.primaryDark,
-                      ),
+                  Text(
+                    '${salon.montantTotal.toStringAsFixed(0)} FCFA',
+                    style: TextStyle(
+                      fontSize: context.fontSize(17),
+                      fontWeight: FontWeight.w800,
+                      color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.figmaBrown,
                 foregroundColor: Colors.white,
-                padding: EdgeInsets.symmetric(
-                  horizontal: context.responsiveValue(compact: 16.0, standard: 22.0),
-                  vertical: 12,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
               ),
-              onPressed: state.isValidating
+              onPressed: isValidating
                   ? null
-                  : () async {
-                      if (!isAuthenticated) {
-                        final action = await AuthGateDialog.show(
-                          context,
-                          message:
-                              'Veuillez vous connecter pour valider toutes vos commandes dans les différents salons.',
-                        );
-                        if (action == null || !context.mounted) return;
-                        final loggedIn = await context.push<bool>(
-                          action == 'register' ? RouteNames.register : RouteNames.login,
-                        );
-                        if (loggedIn != true || !context.mounted) return;
-                        await notifier.synchroniserApresConnexion();
-                      }
-
-                      if (context.mounted) {
-                        final freshState = ref.read(panierStateProvider);
-                        if (freshState.paniers.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Votre panier est vide.'),
-                              backgroundColor: AppColors.error,
-                            ),
-                          );
-                          return;
-                        }
-                        await _afficherConfirmationGlobale(
-                          context: context,
-                          state: freshState,
-                          isDark: isDark,
-                          notifier: notifier,
-                          ref: ref,
-                        );
-                      }
-                    },
-              child: state.isValidating
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                    )
-                  : FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        'Valider tous les paniers',
-                        style: TextStyle(
-                          fontSize: context.fontSize(13.5),
-                          fontWeight: FontWeight.w700,
-                        ),
+                  : () => _validerPanierPourSalon(
+                        context,
+                        salon,
+                        notifier,
+                        isAuthenticated,
                       ),
+              child: isValidating
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.shopping_bag_outlined,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Commander',
+                          style: TextStyle(
+                            fontSize: context.fontSize(13),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _validerPanierPourSalon(
+    BuildContext context,
+    PanierModel panier,
+    PanierNotifier notifier,
+    bool isAuthenticated,
+  ) async {
+    final salonTitle = panier.salonNom ?? panier.slugSalon ?? 'Salon de beauté';
+    if (!isAuthenticated) {
+      final action = await AuthGateDialog.show(
+        context,
+        salonNom: salonTitle,
+        message: 'Veuillez vous connecter pour valider la commande de ce salon.',
+      );
+      if (action == null || !context.mounted) return;
+      final loggedIn = await context.push<bool>(
+        action == 'register' ? RouteNames.register : RouteNames.login,
+      );
+      if (loggedIn != true || !context.mounted) return;
+      await notifier.synchroniserApresConnexion();
+    }
+
+    if (panier.slugSalon != null && context.mounted) {
+      final freshState = ref.read(panierStateProvider);
+      final freshPanier = freshState.paniers.firstWhere(
+        (p) => p.slugSalon == panier.slugSalon,
+        orElse: () => panier,
+      );
+      if (freshPanier.lignes.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Le panier de ce salon est vide.'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+        return;
+      }
+      await _afficherConfirmationSalon(
+        context: context,
+        panier: freshPanier,
+        isDark: Theme.of(context).brightness == Brightness.dark,
+        notifier: notifier,
+        ref: ref,
+      );
+    }
   }
 
   // ==========================================
@@ -1277,327 +1417,10 @@ class PanierScreen extends ConsumerWidget {
     );
   }
 
-  // ==========================================
-  // MODALE 3 : RÉCAPITULATIF VALIDATION GLOBALE MULTI-SALONS
-  // ==========================================
-  Future<void> _afficherConfirmationGlobale({
-    required BuildContext context,
-    required PanierState state,
-    required bool isDark,
-    required PanierNotifier notifier,
-    required WidgetRef ref,
-  }) async {
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(ctx).size.height * 0.85,
-          ),
-          decoration: BoxDecoration(
-            color: isDark ? AppColors.darkSurface : AppColors.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Poignée supérieure
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 44,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark ? Colors.white24 : Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
 
-              // En-tête
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.figmaBrown.withValues(alpha: 0.15),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.shopping_bag_rounded,
-                        color: AppColors.figmaBrown,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Validation Multi-Salons',
-                            style: TextStyle(
-                              fontSize: context.fontSize(16),
-                              fontWeight: FontWeight.w800,
-                              color: context.adaptiveTextColor(),
-                            ),
-                          ),
-                          Text(
-                            '${state.paniers.length} salons partenaires concernés',
-                            style: TextStyle(
-                              fontSize: context.fontSize(12.5),
-                              color: context.adaptiveSubtextColor(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded),
-                      onPressed: () => Navigator.pop(ctx, false),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-
-              // Contenu récapitulatif
-              Flexible(
-                child: ListView(
-                  shrinkWrap: true,
-                  padding: const EdgeInsets.all(20),
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.figmaActiveGold.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: AppColors.figmaActiveGold.withValues(alpha: 0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.info_outline_rounded,
-                            size: 20,
-                            color: AppColors.figmaActiveGold,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Une commande indépendante sera transmise à chacun des salons partenaires.',
-                              style: TextStyle(
-                                fontSize: context.fontSize(12),
-                                color: context.adaptiveTextColor(),
-                                height: 1.3,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Liste des salons
-                    ...state.paniers.map((p) {
-                      final title = p.salonNom ?? p.slugSalon ?? 'Salon';
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isDark
-                              ? const Color(0xFF26201B)
-                              : AppColors.figmaBrown.withValues(alpha: 0.04),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isDark ? AppColors.darkBorder : AppColors.figmaCardBorder,
-                          ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.storefront_rounded,
-                                      size: 16,
-                                      color: isDark
-                                          ? AppColors.figmaActiveGold
-                                          : AppColors.figmaBrown,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      title,
-                                      style: TextStyle(
-                                        fontSize: context.fontSize(14),
-                                        fontWeight: FontWeight.w700,
-                                        color: context.adaptiveTextColor(),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                Text(
-                                  '${p.montantTotal.toStringAsFixed(0)} FCFA',
-                                  style: TextStyle(
-                                    fontSize: context.fontSize(14),
-                                    fontWeight: FontWeight.w800,
-                                    color: isDark
-                                        ? AppColors.figmaActiveGold
-                                        : AppColors.figmaBrown,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${p.nombreArticles} article(s) : ${p.lignes.map((l) => "${l.quantite}x ${l.produitNom}").join(", ")}',
-                              style: TextStyle(
-                                fontSize: context.fontSize(12),
-                                color: context.adaptiveSubtextColor(),
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-
-                    const SizedBox(height: 10),
-                    // Récapitulatif Total
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Total général (${state.totalArticles} articles)',
-                          style: TextStyle(
-                            fontSize: context.fontSize(14),
-                            fontWeight: FontWeight.w600,
-                            color: context.adaptiveTextColor(),
-                          ),
-                        ),
-                        Text(
-                          '${state.montantTotalGlobal.toStringAsFixed(0)} FCFA',
-                          style: TextStyle(
-                            fontSize: context.fontSize(19),
-                            fontWeight: FontWeight.w900,
-                            color: isDark ? AppColors.figmaActiveGold : AppColors.primaryDark,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Boutons d'action
-              SafeArea(
-                top: false,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 10, 20, 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            side: BorderSide(
-                              color: isDark ? AppColors.darkBorder : Colors.grey[400]!,
-                            ),
-                          ),
-                          child: Text(
-                            'Annuler',
-                            style: TextStyle(
-                              fontSize: context.fontSize(13),
-                              fontWeight: FontWeight.w600,
-                              color: context.adaptiveTextColor(),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.figmaBrown,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 13),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 0,
-                          ),
-                          child: Text(
-                            'Valider tout',
-                            style: TextStyle(
-                              fontSize: context.fontSize(13),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (confirmed == true && context.mounted) {
-      final paniersAvant = List<PanierModel>.from(state.paniers);
-      final totalAvant = state.montantTotalGlobal;
-      final orders = await notifier.validerTousLesPaniers();
-      if (context.mounted) {
-        if (orders.isNotEmpty) {
-          await _afficherSuccesMultiCommandes(
-            context: context,
-            commandes: orders,
-            paniers: paniersAvant,
-            montantTotal: totalAvant,
-            isDark: isDark,
-          );
-          await notifier.chargerPaniers();
-        } else {
-          final errorMsg = ref.read(panierStateProvider).error ??
-              'Une erreur est survenue lors de la validation des commandes.';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(errorMsg),
-              backgroundColor: AppColors.error,
-            ),
-          );
-        }
-      }
-    }
-  }
-
-  // ==========================================
-  // MODALE 4 : SUCCÈS VALIDATION GLOBALE MULTI-SALONS
-  // ==========================================
-  Future<void> _afficherSuccesMultiCommandes({
-    required BuildContext context,
-    required List<CommandeModel> commandes,
-    required List<PanierModel> paniers,
-    required double montantTotal,
-    required bool isDark,
-  }) async {
-    final nbSalons = paniers.length;
-
-    await showModalBottomSheet<void>(
+  // _afficherSuccesMultiCommandes removed
+}
+/*
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -1796,4 +1619,5 @@ class PanierScreen extends ConsumerWidget {
       },
     );
   }
-}
+*/
+

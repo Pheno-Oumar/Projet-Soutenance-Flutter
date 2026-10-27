@@ -1,9 +1,9 @@
 class ApiEndpoints {
   // Base URLs
-  // Pour émulateur Android : http://10.0.2.2:8080/api/v1/mon-salon
-  // Pour web/desktop : http://localhost:8080/api/v1/mon-salon
-  // Pour appareil physique : remplacer par l'IP locale (ex: http://192.168.1.X:8080/api/v1/mon-salon)
-  static const String defaultBaseUrl = 'http://10.0.2.2:8080/api/v1/mon-salon';
+  // Réseau local Wi-Fi (accessible depuis émulateur ET appareils physiques réels) :
+  static const String defaultBaseUrl = 'http://192.168.10.176:8080/api/v1/mon-salon';
+  // Émulateur Android uniquement : 'http://10.0.2.2:8080/api/v1/mon-salon'
+  // Web / Desktop local : 'http://localhost:8080/api/v1/mon-salon'
 
   // 1. Authentification
   static const String login = '/auth/login';
@@ -106,6 +106,7 @@ class ApiEndpoints {
   static String clientAvisProduitDetail(int id) => '/client/avis/produits/$id';
   static const String clientReclamations = '/client/reclamations';
   static String clientReclamationDetail(int id) => '/client/reclamations/$id';
+  static String clientReclamationTypesEligibles(String slugSalon) => '/client/reclamations/types-eligibles?slugSalon=$slugSalon';
 
   // 10. Assistant Virtuel Gemini IA
   static const String assistantChat = '/assistant/chat';
@@ -124,4 +125,11 @@ class ApiEndpoints {
   static String clientFavoriSalonToggle(String slug) => '/client/favoris/$slug';
   static String clientFavoriCoiffureToggle(int id) => '/client/favoris/coiffures/$id';
   static String clientFavoriProduitToggle(int id) => '/client/favoris/produits/$id';
+
+  // 13. RGPD & Confidentialité
+  static const String clientRgpdExport = '/client/rgpd/export';
+  static const String clientRgpdArchives = '/client/rgpd/archives';
+  static const String clientRgpdSuppression = '/client/rgpd/suppression';
+  static const String clientRgpdSuivi = '/client/rgpd/suivi';
+  static const String clientRgpdEligibiliteSuppression = '/client/rgpd/eligibilite-suppression';
 }

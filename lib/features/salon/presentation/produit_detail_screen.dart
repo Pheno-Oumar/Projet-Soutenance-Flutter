@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../routing/route_names.dart';
 import '../../panier/presentation/providers/panier_provider.dart';
 import 'providers/salon_provider.dart';
@@ -99,13 +100,10 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
 
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
-      body: Stack(
-        children: [
-          // CONTENU DÉFILANT (Hero + Miniatures + Infos + Description)
-          SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 95),
-            child: Column(
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. Grande photo principale (Hero)
@@ -329,12 +327,8 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
             ),
           ),
 
-          // BARRE D'ACTION FIXE AU BAS (Sélecteur Quantité + Ajouter au panier)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
+      // BARRE D'ACTION FIXE AU BAS (Sélecteur Quantité + Ajouter au panier)
+      bottomNavigationBar: Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
@@ -446,14 +440,14 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                                       .replaceAll(RegExp(r'[^0-9]'), '');
                                   final prixNumerique =
                                       double.tryParse(cleanPrice) ?? 5000.0;
-                                  final effectiveSlug = (widget.slugSalon != null &&
-                                          widget.slugSalon!.isNotEmpty)
-                                      ? widget.slugSalon!
-                                      : 'beauty-by-dika';
                                   final effectiveSalonNom = (widget.salonNom != null &&
                                           widget.salonNom!.isNotEmpty)
                                       ? widget.salonNom!
-                                      : 'Beauty By Dika';
+                                      : 'Salon Partenaire';
+                                  final effectiveSlug = (widget.slugSalon != null &&
+                                          widget.slugSalon!.isNotEmpty)
+                                      ? widget.slugSalon!
+                                      : effectiveSalonNom.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
                                   final effectiveProduitId =
                                       widget.produitId ?? 1;
 
@@ -469,19 +463,13 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                                         : widget.image,
                                   );
 
-                                  ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                          '$_quantity x $displayTitle ajouté au panier ($effectiveSalonNom) !'),
-                                      duration: const Duration(seconds: 2),
-                                      backgroundColor: AppColors.figmaBrown,
-                                      action: SnackBarAction(
-                                        label: 'Voir',
-                                        textColor: AppColors.figmaActiveGold,
-                                        onPressed: () => context.push(RouteNames.panier),
-                                      ),
-                                    ),
+                                  AppToast.show(
+                                    context,
+                                    message: '$_quantity x $displayTitle ajouté au panier ($effectiveSalonNom) !',
+                                    type: ToastType.cart,
+                                    duration: const Duration(seconds: 2),
+                                    actionLabel: 'Voir',
+                                    onAction: () => context.push(RouteNames.panier),
                                   );
                                 },
                           style: ElevatedButton.styleFrom(
@@ -521,9 +509,6 @@ class _ProduitDetailScreenState extends ConsumerState<ProduitDetailScreen> {
                 ),
               ),
             ),
-          ),
-        ],
-      ),
     );
   }
 

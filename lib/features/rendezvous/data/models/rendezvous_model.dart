@@ -224,7 +224,7 @@ class RendezVousModel {
           : '#RDV-${DateTime.now().year}-${idVal.toString().padLeft(4, '0')}',
       salonSlug: json['salonSlug'] as String?,
       salonNom: json['salonNom'] as String? ?? 'Salon',
-      salonAdresse: json['salonAdresse'] as String? ?? 'Dakar',
+      salonAdresse: json['salonAdresse'] as String? ?? 'Bamako',
       salonLogo: json['salonLogo'] as String? ?? 'assets/images/rdv_tous_0.png',
       salonCover: json['salonCover'] as String? ?? 'assets/images/rdv_dt_venir_0.jpeg',
       coiffeurNom: json['coiffeurNom'] as String?,

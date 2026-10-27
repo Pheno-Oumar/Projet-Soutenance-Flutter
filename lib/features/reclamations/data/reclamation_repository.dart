@@ -92,4 +92,25 @@ class ReclamationRepository {
   }
 
   Future<void> relancerReclamation(int id) async {}
+
+  Future<List<TypeReclamationModel>> getTypesEligibles(String slugSalon) async {
+    try {
+      final response = await _apiClient.get(
+        ApiEndpoints.clientReclamationTypesEligibles(slugSalon),
+      );
+      final raw = response.data;
+      if (raw is Map<String, dynamic>) {
+        final data = raw['data'];
+        if (data is List) {
+          return data
+              .map((item) => TypeReclamationModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+      }
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
 }
+

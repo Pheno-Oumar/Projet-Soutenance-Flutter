@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_video_player.dart';
 import '../../../routing/route_names.dart';
 import '../../auth/presentation/providers/auth_provider.dart';
 import '../data/kadys_repository.dart';
@@ -17,62 +19,204 @@ class KadysFeedScreen extends ConsumerStatefulWidget {
   ConsumerState<KadysFeedScreen> createState() => _KadysFeedScreenState();
 }
 
-class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
+class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> with WidgetsBindingObserver {
   // 0 = Suivis, 1 = Pour Toi
   int _activeTopTab = 1;
+  int _focusedIndex = 0;
   final PageController _pageController = PageController();
 
   final Set<int> _savedIds = {};
   final Set<String> _followedSalons = {};
 
-  // Fallback de secours si le backend est injoignable
-  final List<KadysModel> _fallbackItems = const [
-    KadysModel(
-      id: 1,
-      titre: 'Tresse africaine avec chignon',
-      description: 'Un look élégant et intemporel, parfait pour toutes les occasions.',
-      urlVideo: 'https://images.unsplash.com/photo-1580618672591-eb180b1a973f?w=800&auto=format&fit=crop&q=80',
-      salonNom: 'Salon Beauty',
-      salonSlug: 'beauty-by-dika',
-      salonLogoUrl: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?w=500&auto=format&fit=crop&q=80',
-      totalLikes: 12400,
-      totalCommentaires: 342,
-      totalVues: 18000,
-    ),
-    KadysModel(
-      id: 2,
-      titre: 'Box Braids Sculptées',
-      description: 'Tresses protectrices soignées avec finitions dorées éclatantes.',
-      urlVideo: 'https://images.unsplash.com/photo-1595476108010-b4d1f102b1b1?w=800&auto=format&fit=crop&q=80',
-      salonNom: 'Beauty By Dika',
-      salonSlug: 'beauty-by-dika',
-      salonLogoUrl: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?w=500&auto=format&fit=crop&q=80',
-      totalLikes: 8700,
-      totalCommentaires: 184,
-      totalVues: 9200,
-    ),
-    KadysModel(
-      id: 3,
-      titre: 'Dégradé Homme Prestige',
-      description: 'Coupe précise et contours soignés avec traçage barbe impeccable.',
-      urlVideo: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=800&auto=format&fit=crop&q=80',
-      salonNom: 'Barber Shop Kalaban',
-      salonSlug: 'barber-shop-kalaban',
-      salonLogoUrl: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?w=500&auto=format&fit=crop&q=80',
-      totalLikes: 15200,
-      totalCommentaires: 512,
-      totalVues: 24000,
-    ),
-  ];
+  // Pool de contrôleurs vidéo (Fenêtre glissante N-1, N, N+1)
+  final Map<int, VideoPlayerController> _videoPool = {};
+  final Set<int> _initializingPoolIndexes = {};
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final feedState = ref.read(kadysFeedProvider);
+      final items = _getDisplayItems(feedState.items);
+      if (items.isNotEmpty) {
+        _updateVideoPool(_focusedIndex, items);
+        ref.read(kadysRepositoryProvider).enregistrerVue(items.first.id);
+      }
+    });
+  }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _clearVideoPool();
     _pageController.dispose();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _videoPool[_focusedIndex]?.pause();
+    } else if (state == AppLifecycleState.resumed) {
+      _videoPool[_focusedIndex]?.play();
+    }
+  }
+
+  List<KadysModel> _getDisplayItems(List<KadysModel> allItems) {
+    return _activeTopTab == 0
+        ? allItems.where((it) => _followedSalons.contains(it.salonSlug ?? '')).toList()
+        : allItems;
+  }
+
+  void _clearVideoPool() {
+    for (final controller in _videoPool.values) {
+      try {
+        controller.pause();
+        controller.dispose();
+      } catch (_) {}
+    }
+    _videoPool.clear();
+    _initializingPoolIndexes.clear();
+  }
+
+  Future<void> _initControllerForIndex(int index, List<KadysModel> items) async {
+    if (index < 0 || index >= items.length) return;
+    if (_videoPool.containsKey(index) || _initializingPoolIndexes.contains(index)) {
+      return;
+    }
+
+    final item = items[index];
+    final url = item.urlVideo ?? '';
+    if (!isVideoMedia(url)) return;
+
+    _initializingPoolIndexes.add(index);
+    final cleanUrl = resolveMediaUrl(url);
+
+    VideoPlayerController controller;
+    if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+      controller = VideoPlayerController.networkUrl(
+        Uri.parse(cleanUrl),
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+    } else {
+      controller = VideoPlayerController.asset(cleanUrl);
+    }
+
+    try {
+      await controller.initialize();
+      await controller.setLooping(true);
+
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+
+      _videoPool[index] = controller;
+      _initializingPoolIndexes.remove(index);
+
+      // Si c'est l'élément actif, lancer la lecture
+      if (index == _focusedIndex) {
+        await controller.play();
+      } else {
+        // Pré-chargé en arrière-plan : garder en pause, bufferisé
+        await controller.pause();
+      }
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      _initializingPoolIndexes.remove(index);
+      try {
+        await controller.dispose();
+      } catch (_) {}
+    }
+  }
+
+  void _updateVideoPool(int focusedIndex, List<KadysModel> items) {
+    if (items.isEmpty) return;
+
+    final targetIndexes = <int>{
+      focusedIndex,
+      if (focusedIndex + 1 < items.length) focusedIndex + 1,
+      if (focusedIndex - 1 >= 0) focusedIndex - 1,
+    };
+
+    // 1. Libérer les contrôleurs qui sont hors de la fenêtre glissante [N-1, N, N+1]
+    final keysToRemove = _videoPool.keys.where((k) => !targetIndexes.contains(k)).toList();
+    for (final key in keysToRemove) {
+      final ctrl = _videoPool.remove(key);
+      if (ctrl != null) {
+        try {
+          ctrl.pause();
+          ctrl.dispose();
+        } catch (_) {}
+      }
+    }
+
+    // 2. Mettre en pause N-1 et N+1 s'ils sont déjà initialisés
+    for (final idx in targetIndexes) {
+      if (idx != focusedIndex && _videoPool.containsKey(idx)) {
+        try {
+          _videoPool[idx]!.pause();
+        } catch (_) {}
+      }
+    }
+
+    // 3. Lancer la lecture sur le contrôleur actif N
+    if (_videoPool.containsKey(focusedIndex)) {
+      try {
+        _videoPool[focusedIndex]!.play();
+      } catch (_) {}
+    } else {
+      _initControllerForIndex(focusedIndex, items);
+    }
+
+    // 4. Précharger N+1 en arrière-plan (semi-téléchargé / bufferisé)
+    if (focusedIndex + 1 < items.length && !_videoPool.containsKey(focusedIndex + 1)) {
+      _initControllerForIndex(focusedIndex + 1, items);
+    }
+
+    // 5. Précharger N-1 si non présent
+    if (focusedIndex - 1 >= 0 && !_videoPool.containsKey(focusedIndex - 1)) {
+      _initControllerForIndex(focusedIndex - 1, items);
+    }
+  }
+
+  void _switchTopTab(int newTab, List<KadysModel> allItems) {
+    if (_activeTopTab == newTab) return;
+    _clearVideoPool();
+    setState(() {
+      _activeTopTab = newTab;
+      _focusedIndex = 0;
+    });
+    if (_pageController.hasClients) {
+      _pageController.jumpToPage(0);
+    }
+    final items = _getDisplayItems(allItems);
+    if (items.isNotEmpty) {
+      _updateVideoPool(0, items);
+      ref.read(kadysRepositoryProvider).enregistrerVue(items.first.id);
+    }
+  }
+
   void _navigateToSalonRealizations(String slug) {
-    context.push('/salons/$slug?tab=2');
+    _videoPool[_focusedIndex]?.pause();
+    context.push('/salons/$slug?tab=2').then((_) {
+      if (mounted) {
+        _videoPool[_focusedIndex]?.play();
+      }
+    });
+  }
+
+  void _navigateToSearch() {
+    _videoPool[_focusedIndex]?.pause();
+    context.push(RouteNames.recherche).then((_) {
+      if (mounted) {
+        _videoPool[_focusedIndex]?.play();
+      }
+    });
   }
 
   String _formatCount(int count) {
@@ -91,12 +235,22 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
     final bottomOffset = context.responsiveValue(compact: 14.0, standard: 22.0);
 
     final kadysFeedState = ref.watch(kadysFeedProvider);
-    final allItems = kadysFeedState.items.isNotEmpty ? kadysFeedState.items : _fallbackItems;
+    final allItems = kadysFeedState.items;
+    final displayItems = _getDisplayItems(allItems);
 
-    // Filtrage Suivis vs Pour Toi
-    final displayItems = _activeTopTab == 0
-        ? allItems.where((it) => _followedSalons.contains(it.salonSlug ?? '')).toList()
-        : allItems;
+    // Initialisation automatique du pool dès l'arrivée des données
+    ref.listen<KadysFeedState>(kadysFeedProvider, (previous, next) {
+      if (previous?.items != next.items && next.items.isNotEmpty) {
+        final items = _getDisplayItems(next.items);
+        if (items.isNotEmpty && _videoPool.isEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              _updateVideoPool(_focusedIndex, items);
+            }
+          });
+        }
+      }
+    });
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -145,7 +299,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
                     ),
                     const SizedBox(height: 20),
                     ElevatedButton(
-                      onPressed: () => setState(() => _activeTopTab = 1),
+                      onPressed: () => _switchTopTab(1, allItems),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.figmaActiveGold,
                         foregroundColor: AppColors.figmaBrown,
@@ -162,11 +316,80 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
                 ),
               ),
             )
+          else if (displayItems.isEmpty)
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 72,
+                      height: 72,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                      child: const Icon(
+                        Icons.video_library_outlined,
+                        color: AppColors.figmaActiveGold,
+                        size: 38,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Aucune vidéo pour le moment',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: context.fontSize(18),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Les réalisations vidéo publiées par les salons apparaîtront ici.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: context.fontSize(13.5),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        ref.read(kadysFeedProvider.notifier).chargerFeed();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.figmaActiveGold,
+                        foregroundColor: AppColors.figmaBrown,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      icon: const Icon(Icons.refresh_rounded, size: 20),
+                      label: const Text(
+                        'Actualiser',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
           else
             PageView.builder(
               controller: _pageController,
               scrollDirection: Axis.vertical,
               itemCount: displayItems.length,
+              onPageChanged: (index) {
+                setState(() => _focusedIndex = index);
+                _updateVideoPool(index, displayItems);
+                if (index >= 0 && index < displayItems.length) {
+                  ref.read(kadysRepositoryProvider).enregistrerVue(displayItems[index].id);
+                }
+              },
               itemBuilder: (context, index) {
                 final item = displayItems[index];
                 final isLiked = item.isLikedByCurrentUser;
@@ -174,7 +397,10 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
                 final salonSlug = item.salonSlug ?? 'beauty-by-dika';
                 final isFollowed = _followedSalons.contains(salonSlug);
                 final imgPath = item.urlVideo ?? '';
+                final isVideo = isVideoMedia(imgPath);
+                final isFocused = _focusedIndex == index;
                 final isNetwork = imgPath.startsWith('http://') || imgPath.startsWith('https://');
+                final poolController = _videoPool[index];
                 final logoUrl = item.salonLogoUrl ?? '';
                 final salonName = item.salonNom ?? 'Salon Kady\'s';
                 final initials = salonName
@@ -187,10 +413,20 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
                 return Stack(
                   fit: StackFit.expand,
                   children: [
-                    // Photo / Vidéo plein écran
-                    if (isNetwork)
+                    // Lecteur Vidéo plein écran (avec Pool glissant) ou Image
+                    if (isVideo)
+                      AppVideoPlayer(
+                        key: ValueKey('kadys_video_${item.id}'),
+                        videoUrl: imgPath,
+                        controller: poolController,
+                        autoPlay: true,
+                        looping: true,
+                        isPlaying: isFocused,
+                        fit: BoxFit.cover,
+                      )
+                    else if (isNetwork)
                       Image.network(
-                        imgPath,
+                        resolveMediaUrl(imgPath),
                         fit: BoxFit.cover,
                         loadingBuilder: (ctx, child, progress) {
                           if (progress == null) return child;
@@ -208,7 +444,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
                           color: const Color(0xFF151515),
                           alignment: Alignment.center,
                           child: const Icon(
-                            Icons.play_circle_fill_rounded,
+                            Icons.broken_image_rounded,
                             color: Colors.white38,
                             size: 72,
                           ),
@@ -222,7 +458,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
                           color: const Color(0xFF151515),
                           alignment: Alignment.center,
                           child: const Icon(
-                            Icons.play_circle_fill_rounded,
+                            Icons.broken_image_rounded,
                             color: Colors.white38,
                             size: 72,
                           ),
@@ -557,11 +793,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _activeTopTab = 0;
-                              });
-                            },
+                            onTap: () => _switchTopTab(0, allItems),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -592,11 +824,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
                           ),
                           const SizedBox(width: 24),
                           GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _activeTopTab = 1;
-                              });
-                            },
+                            onTap: () => _switchTopTab(1, allItems),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -631,7 +859,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> {
 
                     // Icône de recherche 🔍 en haut à droite
                     GestureDetector(
-                      onTap: () => context.push(RouteNames.recherche),
+                      onTap: _navigateToSearch,
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         child: const Icon(

@@ -23,9 +23,9 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(AuthInterceptor(storageService));
   dio.interceptors.add(
     PrettyDioLogger(
-      requestHeader: true,
+      requestHeader: false,
       requestBody: true,
-      responseBody: true,
+      responseBody: false,
       responseHeader: false,
       compact: true,
     ),

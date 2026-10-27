@@ -20,7 +20,7 @@ class ReclamationModel {
     this.codeReference = '',
     required this.salonNom,
     required this.salonSlug,
-    this.salonAdresse = 'Dakar, Almadies',
+    this.salonAdresse = 'Bamako, Mali',
     this.salonLogo = 'assets/images/rdv_tous_0.png',
     this.type = 'SERVICE',
     required this.objet,
@@ -130,7 +130,7 @@ class ReclamationModel {
           (json['id'] != null ? '#REC-2026-${json['id'].toString().padLeft(4, '0')}' : ''),
       salonNom: json['salonNom'] as String? ?? 'Salon',
       salonSlug: json['salonSlug'] as String? ?? '',
-      salonAdresse: json['salonAdresse'] as String? ?? 'Dakar',
+      salonAdresse: json['salonAdresse'] as String? ?? 'Bamako',
       salonLogo: json['salonLogo'] as String? ?? 'assets/images/rdv_tous_0.png',
       type: json['type'] as String? ?? 'SERVICE',
       objet: json['objet'] as String? ?? '',
@@ -162,3 +162,34 @@ class ReclamationModel {
     'dateTraitement': dateTraitement,
   };
 }
+
+class TypeReclamationModel {
+  final String type;
+  final String libelle;
+  final bool eligible;
+  final String? motifIneligibilite;
+
+  const TypeReclamationModel({
+    required this.type,
+    required this.libelle,
+    required this.eligible,
+    this.motifIneligibilite,
+  });
+
+  factory TypeReclamationModel.fromJson(Map<String, dynamic> json) {
+    return TypeReclamationModel(
+      type: json['type'] as String? ?? '',
+      libelle: json['libelle'] as String? ?? '',
+      eligible: json['eligible'] as bool? ?? false,
+      motifIneligibilite: json['motifIneligibilite'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'type': type,
+    'libelle': libelle,
+    'eligible': eligible,
+    'motifIneligibilite': motifIneligibilite,
+  };
+}
+

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../routing/route_names.dart';
@@ -14,34 +12,11 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
-  Timer? _advanceTimer;
 
   @override
-  void initState() {
-    super.initState();
-    _scheduleAdvance(fromPage: 0, toPage: 1);
-  }
-
-  void _scheduleAdvance({required int fromPage, required int toPage}) {
-    _advanceTimer?.cancel();
-    _advanceTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted && _currentPage == fromPage) {
-        _pageController.animateToPage(
-          toPage,
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeInOut,
-        );
-      }
-    });
-  }
-
-  void _scheduleHomeRedirect() {
-    _advanceTimer?.cancel();
-    _advanceTimer = Timer(const Duration(seconds: 5), () {
-      if (mounted && _currentPage == 2) {
-        context.go(RouteNames.home);
-      }
-    });
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
   }
 
   static const _pages = [
@@ -68,13 +43,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   @override
-  void dispose() {
-    _advanceTimer?.cancel();
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: const Color(0xFFFFFDFC),
         body: PageView.builder(
@@ -82,18 +50,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           itemCount: _pages.length,
           onPageChanged: (index) {
             setState(() => _currentPage = index);
-            if (index == 1) {
-              _scheduleAdvance(fromPage: 1, toPage: 2);
-            } else if (index == 2) {
-              _scheduleHomeRedirect();
-            } else {
-              _advanceTimer?.cancel();
-            }
           },
           itemBuilder: (context, index) => _OnboardingPage(
             data: _pages[index],
             pageIndex: index,
             currentPage: _currentPage,
+            onPrevious: index > 0
+                ? () => _pageController.previousPage(
+                      duration: const Duration(milliseconds: 350),
+                      curve: Curves.easeInOut,
+                    )
+                : null,
             onNext: () {
               if (index < _pages.length - 1) {
                 _pageController.animateToPage(
@@ -102,7 +69,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   curve: Curves.easeInOut,
                 );
               } else {
-                _advanceTimer?.cancel();
                 context.go(RouteNames.home);
               }
             },
@@ -135,6 +101,7 @@ class _OnboardingPage extends StatelessWidget {
     required this.data,
     required this.pageIndex,
     required this.currentPage,
+    this.onPrevious,
     required this.onNext,
     required this.onDotTap,
   });
@@ -142,6 +109,7 @@ class _OnboardingPage extends StatelessWidget {
   final _OnboardingData data;
   final int pageIndex;
   final int currentPage;
+  final VoidCallback? onPrevious;
   final VoidCallback onNext;
   final ValueChanged<int> onDotTap;
 
@@ -151,7 +119,16 @@ class _OnboardingPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     final isThirdPage = pageIndex == 2;
+    final isShortScreen = size.height < 720;
+    final isNarrowScreen = size.width < 360;
+
+    final horizontalPadding = isNarrowScreen ? 16.0 : 20.0;
+    final bottomPadding = (bottomInset > 0 ? bottomInset : (isShortScreen ? 12.0 : 20.0));
+    final spacingDescButtons = isShortScreen
+        ? 14.0
+        : (size.height * 0.04).clamp(16.0, 32.0);
 
     return Stack(
       fit: StackFit.expand,
@@ -160,7 +137,7 @@ class _OnboardingPage extends StatelessWidget {
           top: 0,
           left: 0,
           right: 0,
-          height: size.height * 0.68,
+          height: size.height * (isShortScreen ? 0.64 : 0.68),
           child: Image.asset(data.image, fit: BoxFit.cover, alignment: Alignment.topCenter),
         ),
         Positioned.fill(
@@ -170,84 +147,129 @@ class _OnboardingPage extends StatelessWidget {
           ),
         ),
         Positioned(
-          top: size.height * 0.51,
+          top: size.height * (isShortScreen ? 0.49 : 0.51),
           left: size.width * (isThirdPage ? 0.01 : -0.015),
           width: size.width * (isThirdPage ? 0.98 : 1.03),
-          height: size.height * (isThirdPage ? 0.35 : 0.37),
+          height: size.height * (isThirdPage ? (isShortScreen ? 0.32 : 0.35) : (isShortScreen ? 0.34 : 0.37)),
           child: Image.asset(data.flower, fit: BoxFit.fill, alignment: Alignment.topCenter),
         ),
         Positioned(
-          top: size.height * 0.75,
-          left: 20,
-          right: 20,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                data.title,
-                style: const TextStyle(
-                  color: _brown,
-                  fontSize: 19,
-                  fontWeight: FontWeight.w800,
-                  height: 1.25,
-                ),
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(
+                horizontalPadding,
+                0,
+                horizontalPadding,
+                bottomPadding,
               ),
-              const SizedBox(height: 8),
-              Text(
-                data.description,
-                style: const TextStyle(color: _muted, fontSize: 16, height: 2.05),
-              ),
-              SizedBox(height: size.height * 0.055),
-              SizedBox(
-                height: 46,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(3, (index) {
-                        return Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: GestureDetector(
-                            onTap: () => onDotTap(index),
-                            child: _PageDot(active: currentPage == index),
-                          ),
-                        );
-                      }),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.title,
+                    style: TextStyle(
+                      color: _brown,
+                      fontSize: isShortScreen ? 18 : 19,
+                      fontWeight: FontWeight.w800,
+                      height: 1.25,
                     ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Transform.translate(
-                        offset: const Offset(0, 10),
-                        child: SizedBox(
-                          height: 42,
-                          child: FilledButton.icon(
-                            onPressed: onNext,
-                            icon: Icon(
-                              pageIndex == 2
-                                  ? Icons.check_rounded
-                                  : Icons.arrow_forward_rounded,
-                              size: 17,
-                            ),
-                            label: Text(pageIndex == 2 ? 'Commencer' : 'Suivant'),
-                            style: FilledButton.styleFrom(
-                              backgroundColor: const Color(0xFF925D42),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              textStyle: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
+                  ),
+                  SizedBox(height: isShortScreen ? 6 : 8),
+                  Text(
+                    data.description,
+                    style: TextStyle(
+                      color: _muted,
+                      fontSize: isShortScreen ? 14.5 : 15.5,
+                      height: isShortScreen ? 1.35 : 1.45,
+                    ),
+                  ),
+                  SizedBox(height: spacingDescButtons),
+                  SizedBox(
+                    height: 44,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(3, (index) {
+                            return Padding(
+                              padding: EdgeInsets.symmetric(horizontal: isNarrowScreen ? 3 : 4),
+                              child: GestureDetector(
+                                onTap: () => onDotTap(index),
+                                child: _PageDot(
+                                  active: currentPage == index,
+                                  size: isNarrowScreen ? 11 : 13,
+                                ),
                               ),
-                              shape: const StadiumBorder(),
+                            );
+                          }),
+                        ),
+                        if (onPrevious != null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: SizedBox(
+                              height: 40,
+                              child: OutlinedButton.icon(
+                                onPressed: onPrevious,
+                                icon: const Icon(
+                                  Icons.arrow_back_rounded,
+                                  size: 16,
+                                ),
+                                label: const Text('Précédent'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF925D42),
+                                  side: const BorderSide(color: Color(0xFFD6C3B7)),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: isNarrowScreen ? 9 : 12,
+                                  ),
+                                  textStyle: TextStyle(
+                                    fontSize: isNarrowScreen ? 12 : 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  shape: const StadiumBorder(),
+                                ),
+                              ),
+                            ),
+                          ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: SizedBox(
+                            height: 40,
+                            child: FilledButton.icon(
+                              onPressed: onNext,
+                              icon: Icon(
+                                pageIndex == 2
+                                    ? Icons.check_rounded
+                                    : Icons.arrow_forward_rounded,
+                                size: 16,
+                              ),
+                              label: Text(pageIndex == 2 ? 'Commencer' : 'Suivant'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFF925D42),
+                                foregroundColor: Colors.white,
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: isNarrowScreen ? 9 : 12,
+                                ),
+                                textStyle: TextStyle(
+                                  fontSize: isNarrowScreen ? 12 : 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                shape: const StadiumBorder(),
+                              ),
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ],
@@ -256,14 +278,18 @@ class _OnboardingPage extends StatelessWidget {
 }
 
 class _PageDot extends StatelessWidget {
-  const _PageDot({required this.active});
+  const _PageDot({
+    required this.active,
+    this.size = 13.0,
+  });
 
   final bool active;
+  final double size;
 
   @override
   Widget build(BuildContext context) => Container(
-        width: 15,
-        height: 15,
+        width: size,
+        height: size,
         decoration: BoxDecoration(
           color: active ? const Color(0xFF925D42) : const Color(0xFFC9C1BB),
           shape: BoxShape.circle,

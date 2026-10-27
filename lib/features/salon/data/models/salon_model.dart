@@ -28,8 +28,8 @@ class SalonModel {
     this.latitude,
     this.longitude,
     this.statut = true,
-    this.noteMoyenne = 4.8,
-    this.nombreAvis = 12,
+    this.noteMoyenne = 0.0,
+    this.nombreAvis = 0,
     this.distanceKm,
   });
 
@@ -47,8 +47,8 @@ class SalonModel {
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
       statut: json['statut'] as bool? ?? true,
-      noteMoyenne: (json['noteMoyenne'] as num?)?.toDouble() ?? 4.8,
-      nombreAvis: json['nombreAvis'] as int? ?? 12,
+      noteMoyenne: (json['noteMoyenne'] as num?)?.toDouble() ?? 0.0,
+      nombreAvis: json['nombreAvis'] as int? ?? 0,
       distanceKm: (json['distanceKm'] as num?)?.toDouble(),
     );
   }

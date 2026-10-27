@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_toast.dart';
 import '../../../routing/route_names.dart';
 import '../../rendezvous/data/models/rendezvous_panier_model.dart';
 import '../../rendezvous/presentation/providers/rendezvous_panier_provider.dart';
+import '../../compte/presentation/providers/favoris_provider.dart';
+import 'providers/salon_provider.dart';
 
 class VarianteDetailScreen extends ConsumerStatefulWidget {
   final String title;
@@ -71,17 +74,24 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final slug = widget.slugSalon ?? '';
+    final avisAsync = slug.isNotEmpty ? ref.watch(salonAvisProvider(slug)) : null;
+    final avisList = avisAsync?.valueOrNull ?? [];
+    final hasAvis = avisList.isNotEmpty;
+    final realCount = avisList.length;
+    final realNote = hasAvis
+        ? (avisList.fold<num>(0, (sum, a) => sum + a.note) / realCount).toDouble()
+        : 0.0;
+    final duree = widget.dureeMinutes ?? 45;
+    final formattedDuree = duree >= 60
+        ? '${duree ~/ 60}h${duree % 60 > 0 ? " ${duree % 60}min" : ""}'
+        : '$duree min';
     return Scaffold(
       backgroundColor: isDark ? AppColors.darkBackground : Colors.white,
-      body: Stack(
-        children: [
-          // ==============================================================
-          // CONTENU DÉFILANT (Hero + Miniatures + Infos remodelées + Carte)
-          // ==============================================================
-          SingleChildScrollView(
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.only(bottom: 95),
-            child: Column(
+      body: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 24),
+        child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // 1. Grande photo principale (Hero)
@@ -185,7 +195,7 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              'Coiffure protectrice',
+                              'Prestation salon',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -223,42 +233,71 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                       ),
                       const SizedBox(height: 8),
 
-                      // Note & Étoiles
-                      Row(
-                        children: [
-                          for (int s = 0; s < 5; s++)
+                      // Note & Étoiles dynamiques
+                      if (hasAvis && realNote > 0)
+                        Row(
+                          children: [
+                            for (int s = 0; s < 5; s++)
+                              Icon(
+                                s < realNote.round() ? Icons.star_rounded : Icons.star_border_rounded,
+                                color: AppColors.figmaActiveGold,
+                                size: 17,
+                              ),
+                            const SizedBox(width: 6),
+                            Text(
+                              realNote.toStringAsFixed(1),
+                              style: TextStyle(
+                                fontSize: context.fontSize(13),
+                                fontWeight: FontWeight.w800,
+                                color: context.adaptiveTextColor(),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '($realCount avis vérifié${realCount > 1 ? "s" : ""})',
+                              style: TextStyle(
+                                fontSize: context.fontSize(12),
+                                color: context.adaptiveSubtextColor(),
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        )
+                      else
+                        Row(
+                          children: [
                             const Icon(
                               Icons.star_rounded,
                               color: AppColors.figmaActiveGold,
                               size: 17,
                             ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '5',
-                            style: TextStyle(
-                              fontSize: context.fontSize(13),
-                              fontWeight: FontWeight.w800,
-                              color: context.adaptiveTextColor(),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Nouveau',
+                              style: TextStyle(
+                                fontSize: context.fontSize(13),
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.figmaActiveGold,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '(128 avis vérifiés)',
-                            style: TextStyle(
-                              fontSize: context.fontSize(12),
-                              color: context.adaptiveSubtextColor(),
-                              fontWeight: FontWeight.w500,
+                            const SizedBox(width: 6),
+                            Text(
+                              '(Aucun avis pour l\'instant)',
+                              style: TextStyle(
+                                fontSize: context.fontSize(12),
+                                color: context.adaptiveSubtextColor(),
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       const SizedBox(height: 14),
 
                       // Description remodelée avec "Voir plus"
                       Text(
                         (widget.description != null && widget.description!.trim().isNotEmpty)
                             ? widget.description!
-                            : 'Des tresses soignées et élégantes, réalisées avec professionnalisme pour un style durable et confortable. Adaptées à tous types de cheveux avec des finitions impeccables et un confort optimal pour le cuir chevelu.',
+                            : 'Prestation "${widget.title}" réalisée avec savoir-faire et des produits professionnels par le salon ${widget.salonName}. Prenez rendez-vous en ligne en toute simplicité.',
                         style: TextStyle(
                           fontSize: context.fontSize(13),
                           color: context.adaptiveSubtextColor(),
@@ -336,7 +375,7 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '1h 30',
+                                  formattedDuree,
                                   style: TextStyle(
                                     fontSize: context.fontSize(13.5),
                                     fontWeight: FontWeight.w800,
@@ -372,27 +411,31 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                               ),
                             ),
                             const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Salon',
-                                  style: TextStyle(
-                                    fontSize: context.fontSize(11),
-                                    color: context.adaptiveSubtextColor(),
-                                    fontWeight: FontWeight.w500,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Salon',
+                                    style: TextStyle(
+                                      fontSize: context.fontSize(11),
+                                      color: context.adaptiveSubtextColor(),
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Au salon',
-                                  style: TextStyle(
-                                    fontSize: context.fontSize(13.5),
-                                    fontWeight: FontWeight.w800,
-                                    color: context.adaptiveTextColor(),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    widget.salonName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: context.fontSize(13.5),
+                                      fontWeight: FontWeight.w800,
+                                      color: context.adaptiveTextColor(),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -405,15 +448,10 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
               ],
             ),
           ),
-
-          // ==============================================================
-          // 5. BOUTON D'ACTION FIXE AU BAS (Ajouter au rendez-vous)
-          // ==============================================================
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Container(
+      // ==============================================================
+      // 5. BOUTON D'ACTION FIXE AU BAS (Ajouter au rendez-vous)
+      // ==============================================================
+      bottomNavigationBar: Container(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
               decoration: BoxDecoration(
                 color: isDark ? AppColors.darkSurface : Colors.white,
@@ -444,8 +482,12 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                       final parsedPrice = double.tryParse(cleanedPrice) ?? 5000.0;
                       final effectiveVarianteId = widget.varianteId ?? (widget.title.hashCode.abs() % 10000 + 1);
 
+                      final effectiveSlug = (widget.slugSalon != null && widget.slugSalon!.isNotEmpty)
+                          ? widget.slugSalon!
+                          : widget.salonName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+
                       ref.read(rendezvousPanierProvider.notifier).ajouterPrestation(
-                            slugSalon: widget.slugSalon ?? 'beauty-by-dika',
+                            slugSalon: effectiveSlug,
                             salonNom: widget.salonName,
                             prestation: LignePrestationPanierModel(
                               varianteId: effectiveVarianteId,
@@ -458,18 +500,13 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                             ),
                           );
 
-                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('${widget.title} ajouté au panier rendez-vous !'),
-                          duration: const Duration(seconds: 2),
-                          backgroundColor: AppColors.figmaBrown,
-                          action: SnackBarAction(
-                            label: 'Voir',
-                            textColor: AppColors.figmaActiveGold,
-                            onPressed: () => context.push(RouteNames.panierRendezVous),
-                          ),
-                        ),
+                      AppToast.show(
+                        context,
+                        message: '${widget.title} ajouté au panier rendez-vous !',
+                        type: ToastType.rdv,
+                        duration: const Duration(seconds: 2),
+                        actionLabel: 'Voir',
+                        onAction: () => context.push(RouteNames.panierRendezVous),
                       );
                     },
                     style: ElevatedButton.styleFrom(
@@ -503,9 +540,6 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                 ),
               ),
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -567,9 +601,13 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                     // Bouton favori circulaire blanc
                     GestureDetector(
                       onTap: () {
-                        setState(() {
-                          _isFavorite = !_isFavorite;
-                        });
+                        if (widget.varianteId != null) {
+                          ref.read(favorisProvider.notifier).toggleCoiffure(widget.varianteId!);
+                        } else {
+                          setState(() {
+                            _isFavorite = !_isFavorite;
+                          });
+                        }
                       },
                       child: Container(
                         width: 38,
@@ -587,10 +625,14 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                         ),
                         alignment: Alignment.center,
                         child: Icon(
-                          _isFavorite
+                          (widget.varianteId != null
+                                  ? ref.watch(favorisProvider).isCoiffureFav(widget.varianteId!)
+                                  : _isFavorite)
                               ? Icons.favorite_rounded
                               : Icons.favorite_border_rounded,
-                          color: _isFavorite
+                          color: (widget.varianteId != null
+                                  ? ref.watch(favorisProvider).isCoiffureFav(widget.varianteId!)
+                                  : _isFavorite)
                               ? const Color(0xFFE53935)
                               : (isDark ? AppColors.darkTextPrimary : Colors.black87),
                           size: 20,

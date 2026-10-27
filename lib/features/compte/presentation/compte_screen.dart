@@ -468,57 +468,61 @@ class CompteScreen extends ConsumerWidget {
             const SizedBox(height: 32),
 
             // Section raccourcis accessibles en mode invité
-            Container(
-              decoration: BoxDecoration(
-                color: isDark ? AppColors.darkSurface : Colors.white,
-                borderRadius: BorderRadius.circular(14),
-                border: context.symmetricBorder(),
-              ),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.favorite_border_rounded, color: AppColors.figmaActiveGold, size: 22),
-                    title: Text(
-                      'Mes favoris',
-                      style: TextStyle(
-                        fontSize: context.fontSize(14),
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+            Material(
+              color: isDark ? AppColors.darkSurface : Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              clipBehavior: Clip.antiAlias,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: context.symmetricBorder(),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.favorite_border_rounded, color: AppColors.figmaActiveGold, size: 22),
+                      title: Text(
+                        'Mes favoris',
+                        style: TextStyle(
+                          fontSize: context.fontSize(14),
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+                        ),
                       ),
-                    ),
-                    subtitle: Text(
-                      'Sauvegardés sur cet appareil',
-                      style: TextStyle(
-                        fontSize: context.fontSize(12),
-                        color: isDark ? AppColors.darkTextSecondary : Colors.grey[600],
+                      subtitle: Text(
+                        'Sauvegardés sur cet appareil',
+                        style: TextStyle(
+                          fontSize: context.fontSize(12),
+                          color: isDark ? AppColors.darkTextSecondary : Colors.grey[600],
+                        ),
                       ),
+                      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                      onTap: () => context.push(RouteNames.mesFavoris),
                     ),
-                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-                    onTap: () => context.push(RouteNames.mesFavoris),
-                  ),
-                  Divider(
-                    height: 1,
-                    indent: 52,
-                    color: isDark ? AppColors.darkDivider : const Color(0xFFF0EAE1),
-                  ),
-                  ListTile(
-                    leading: Icon(
-                      Icons.settings_outlined,
-                      color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
-                      size: 22,
+                    Divider(
+                      height: 1,
+                      indent: 52,
+                      color: isDark ? AppColors.darkDivider : const Color(0xFFF0EAE1),
                     ),
-                    title: Text(
-                      'Paramètres de l\'application',
-                      style: TextStyle(
-                        fontSize: context.fontSize(14),
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+                    ListTile(
+                      leading: Icon(
+                        Icons.settings_outlined,
+                        color: isDark ? AppColors.figmaActiveGold : AppColors.figmaBrown,
+                        size: 22,
                       ),
+                      title: Text(
+                        'Paramètres de l\'application',
+                        style: TextStyle(
+                          fontSize: context.fontSize(14),
+                          fontWeight: FontWeight.w600,
+                          color: isDark ? AppColors.darkTextPrimary : const Color(0xFF1E1E1E),
+                        ),
+                      ),
+                      trailing: const Icon(Icons.chevron_right_rounded, size: 20),
+                      onTap: () => context.push(RouteNames.parametres),
                     ),
-                    trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-                    onTap: () => context.push(RouteNames.parametres),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],

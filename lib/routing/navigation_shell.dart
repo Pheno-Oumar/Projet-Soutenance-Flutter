@@ -3,9 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../core/theme/app_colors.dart';
 import '../core/utils/responsive.dart';
+import '../features/compte/presentation/providers/compte_provider.dart';
 import '../features/notification/presentation/providers/notification_provider.dart';
 import '../features/panier/presentation/providers/panier_provider.dart';
 import '../features/rendezvous/presentation/providers/rendezvous_panier_provider.dart';
+import '../features/salon/presentation/providers/salon_provider.dart';
 import 'route_names.dart';
 
 class NavigationShell extends ConsumerWidget {
@@ -190,6 +192,7 @@ class NavigationShell extends ConsumerWidget {
                   children: [
                     _buildBottomTab(
                       context,
+                      ref: ref,
                       index: 0,
                       label: 'Accueil',
                       icon: Icons.home_rounded,
@@ -197,6 +200,7 @@ class NavigationShell extends ConsumerWidget {
                     ),
                     _buildBottomTab(
                       context,
+                      ref: ref,
                       index: 1,
                       label: 'Salon',
                       icon: Icons.storefront_rounded,
@@ -204,6 +208,7 @@ class NavigationShell extends ConsumerWidget {
                     ),
                     _buildBottomTab(
                       context,
+                      ref: ref,
                       index: 2,
                       label: "Kady's",
                       icon: Icons.play_circle_fill_rounded,
@@ -211,6 +216,7 @@ class NavigationShell extends ConsumerWidget {
                     ),
                     _buildBottomTab(
                       context,
+                      ref: ref,
                       index: 3,
                       label: 'Compte',
                       icon: Icons.person_rounded,
@@ -292,6 +298,7 @@ class NavigationShell extends ConsumerWidget {
   // ==============================================================
   Widget _buildBottomTab(
     BuildContext context, {
+    required WidgetRef ref,
     required int index,
     required String label,
     required IconData icon,
@@ -307,10 +314,12 @@ class NavigationShell extends ConsumerWidget {
     return Expanded(
       child: InkWell(
         onTap: () {
+          final isCurrent = index == navigationShell.currentIndex;
           navigationShell.goBranch(
             index,
-            initialLocation: index == navigationShell.currentIndex,
+            initialLocation: isCurrent,
           );
+          _refreshTab(ref, index);
         },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 6),
@@ -382,5 +391,26 @@ class NavigationShell extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  void _refreshTab(WidgetRef ref, int index) {
+    switch (index) {
+      case 0:
+        ref.invalidate(kadysStoriesGroupsProvider);
+        ref.invalidate(servicesTransversauxProvider(null));
+        ref.invalidate(realisationsTransversalesProvider);
+        ref.invalidate(produitsTransversauxProvider(null));
+        ref.read(salonsListProvider.notifier).chargerSalons();
+        break;
+      case 1:
+        ref.read(salonsListProvider.notifier).chargerSalons();
+        break;
+      case 2:
+        break;
+      case 3:
+        ref.invalidate(clientProfileProvider);
+        ref.invalidate(unreadNotificationCountProvider);
+        break;
+    }
   }
 }

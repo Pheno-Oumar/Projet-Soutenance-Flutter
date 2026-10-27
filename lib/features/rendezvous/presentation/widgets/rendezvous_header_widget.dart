@@ -68,7 +68,7 @@ class RendezVousHeaderWidget extends StatelessWidget {
     final coverPath = rdv.salonCover ?? 'assets/images/rdv_dt_venir_0.jpeg';
     final logoPath = rdv.salonLogo ?? 'assets/images/rdv_tous_0.png';
     final salonName = rdv.salonNom ?? 'Salon Beauty';
-    final location = rdv.salonAdresse ?? 'Dakar, Almadies';
+    final location = rdv.salonAdresse ?? 'Bamako, Mali';
     final dateStr = rdv.dateHeureFormatee;
     final headerHeight = context.responsiveValue<double>(
       compact: 240,

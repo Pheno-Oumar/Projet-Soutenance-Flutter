@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/utils/responsive.dart';
+import '../../../core/widgets/app_toast.dart';
+import '../../../core/providers/user_location_provider.dart';
 import '../../../routing/route_names.dart';
 import '../../panier/presentation/providers/panier_provider.dart';
 import '../../salon/presentation/providers/salon_provider.dart';
@@ -31,13 +33,13 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
   late final TextEditingController _searchController;
   int _selectedPillIndex = 0; // 0: Tous, 1: Salons, 2: Services, 3: Produits
   int? _selectedResultIndex; // Index de la carte cliquée
-  late int _selectedDistance;
+  int? _selectedDistance;
 
   @override
   void initState() {
     super.initState();
     _searchController = TextEditingController(text: widget.initialQuery ?? '');
-    _selectedDistance = widget.initialDistance ?? 5;
+    _selectedDistance = widget.initialDistance;
   }
 
   @override
@@ -59,14 +61,14 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
     return earthRadiusKm * c;
   }
 
-  double _getSalonDistance(SalonModel salon, {double userLat = 14.6937, double userLng = -17.4441}) {
+  double? _getSalonDistance(SalonModel salon, {double? userLat, double? userLng}) {
     if (salon.distanceKm != null) {
       return salon.distanceKm!;
     }
-    if (salon.latitude != null && salon.longitude != null) {
+    if (salon.latitude != null && salon.longitude != null && userLat != null && userLng != null) {
       return _calculateDistanceKm(userLat, userLng, salon.latitude!, salon.longitude!);
     }
-    return 1.5 + ((salon.id * 3) % 15).toDouble();
+    return null;
   }
 
   void _afficherSelecteurDistance(BuildContext context) {
@@ -112,7 +114,7 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Afficher les résultats filtrés par MySQL Spatial :',
+                  'Afficher les résultats à proximité :',
                   style: TextStyle(
                     fontSize: 12.5,
                     color: isDark ? AppColors.darkTextSecondary : Colors.black54,
@@ -122,25 +124,36 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children: [1, 3, 5, 10, 20, 50].map((dist) {
+                  children: <int?>[null, 1, 3, 5, 10, 20, 50].map((dist) {
                     final isSel = _selectedDistance == dist;
                     return InkWell(
                       onTap: () {
                         setState(() => _selectedDistance = dist);
-                        // Appel de l'endpoint Hibernate Spatial / MySQL
-                        ref.read(salonsListProvider.notifier).chargerSalonsNearby(
-                          lat: 14.6937,
-                          lng: -17.4441,
-                          rayonKm: dist.toDouble(),
-                        );
-                        Navigator.pop(ctx);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Résultats filtrés dans un rayon de $dist km (MySQL Spatial)'),
+                        if (dist == null) {
+                          ref.read(salonsListProvider.notifier).chargerSalons();
+                          Navigator.pop(ctx);
+                          AppToast.show(
+                            context,
+                            message: 'Tous les résultats sont affichés',
+                            type: ToastType.info,
                             duration: const Duration(seconds: 2),
-                            backgroundColor: AppColors.figmaBrown,
-                          ),
-                        );
+                          );
+                        } else {
+                          // Recherche par géolocalisation
+                          final loc = ref.read(userLocationProvider).location;
+                          ref.read(salonsListProvider.notifier).chargerSalonsNearby(
+                            lat: loc?.latitude ?? 12.6392,
+                            lng: loc?.longitude ?? -8.0029,
+                            rayonKm: dist.toDouble(),
+                          );
+                          Navigator.pop(ctx);
+                          AppToast.show(
+                            context,
+                            message: 'Résultats filtrés dans un rayon de $dist km',
+                            type: ToastType.info,
+                            duration: const Duration(seconds: 2),
+                          );
+                        }
                       },
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
@@ -157,7 +170,7 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
                           ),
                         ),
                         child: Text(
-                          '$dist km',
+                          dist == null ? 'Tout' : '$dist km',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
@@ -183,6 +196,7 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
     final queryText = _searchController.text.trim();
     final q = queryText.toLowerCase();
 
+    final userLocation = ref.watch(userLocationProvider).location;
     final salonsState = ref.watch(salonsListProvider);
     final servicesAsync = ref.watch(servicesTransversauxProvider(queryText.isNotEmpty ? queryText : null));
     final produitsAsync = ref.watch(produitsTransversauxProvider(null));
@@ -194,8 +208,15 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
           (s.adresse != null && s.adresse!.toLowerCase().contains(q)) ||
           (s.description != null && s.description!.toLowerCase().contains(q));
       if (!matchesQuery) return false;
-      final dist = _getSalonDistance(s);
-      return dist <= _selectedDistance;
+      if (_selectedDistance != null) {
+        final dist = _getSalonDistance(
+          s,
+          userLat: userLocation?.latitude,
+          userLng: userLocation?.longitude,
+        );
+        return dist != null && dist <= _selectedDistance!;
+      }
+      return true;
     }).toList();
 
     // Filtrage dynamique Services par mot-clé et par rayon kilométrique du salon
@@ -212,9 +233,13 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
           (sal) => sal.slug == s.slugSalon,
           orElse: () => const SalonModel(id: 0, nom: '', slug: ''),
         );
-        if (salon.id != 0) {
-          final dist = _getSalonDistance(salon);
-          return dist <= _selectedDistance;
+        if (salon.id != 0 && _selectedDistance != null) {
+          final dist = _getSalonDistance(
+            salon,
+            userLat: userLocation?.latitude,
+            userLng: userLocation?.longitude,
+          );
+          return dist != null && dist <= _selectedDistance!;
         }
       }
       return true;
@@ -235,9 +260,13 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
           (sal) => sal.slug == p.slugSalon,
           orElse: () => const SalonModel(id: 0, nom: '', slug: ''),
         );
-        if (salon.id != 0) {
-          final dist = _getSalonDistance(salon);
-          return dist <= _selectedDistance;
+        if (salon.id != 0 && _selectedDistance != null) {
+          final dist = _getSalonDistance(
+            salon,
+            userLat: userLocation?.latitude,
+            userLng: userLocation?.longitude,
+          );
+          return dist != null && dist <= _selectedDistance!;
         }
       }
       return true;
@@ -372,7 +401,7 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
                           ),
                           const SizedBox(width: 4),
                           Text(
-                            '$_selectedDistance km >',
+                            '${_selectedDistance == null ? "Tout" : "$_selectedDistance km"} >',
                             style: TextStyle(
                               fontSize: context.fontSize(12.5),
                               fontWeight: FontWeight.w800,
@@ -477,18 +506,24 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
                                     final salon = filteredSalons[i];
                                     final fallbackImg = 'assets/images/recherche_img_0.png';
                                     final imgUrl = salon.coverUrl ?? salon.logoUrl ?? fallbackImg;
-                                    final ratingStr = salon.noteMoyenne > 0
+                                    final ratingStr = (salon.noteMoyenne > 0 && salon.nombreAvis > 0)
                                         ? '★ ${salon.noteMoyenne.toStringAsFixed(1)} • ${salon.nombreAvis} avis'
                                         : '★ Nouveau';
-                                    final distKm = _getSalonDistance(salon);
-                                    final distStr = '${distKm.toStringAsFixed(1)} km';
+                                    final distKm = _getSalonDistance(
+                                      salon,
+                                      userLat: userLocation?.latitude,
+                                      userLng: userLocation?.longitude,
+                                    );
+                                    final locStr = distKm != null
+                                        ? '${distKm.toStringAsFixed(1)} km • ${salon.adresse?.isNotEmpty == true ? salon.adresse! : 'Bamako'}'
+                                        : (salon.adresse?.isNotEmpty == true ? salon.adresse! : 'Bamako');
                                     return Padding(
                                       padding: const EdgeInsets.only(bottom: 12),
                                       child: _buildSalonResultCard(
                                         index: i,
                                         imagePath: imgUrl,
                                         title: salon.nom,
-                                        location: '$distStr • ${salon.adresse ?? 'Dakar'}',
+                                        location: locStr,
                                         rating: ratingStr,
                                         onTap: () {
                                           setState(() => _selectedResultIndex = i);
@@ -589,18 +624,13 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
                                               imageUrl: effectiveImg,
                                             ),
                                           );
-                                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('${s.nom} ajoutée au panier rendez-vous !'),
-                                              duration: const Duration(seconds: 2),
-                                              backgroundColor: AppColors.figmaBrown,
-                                              action: SnackBarAction(
-                                                label: 'Voir le panier',
-                                                textColor: AppColors.figmaActiveGold,
-                                                onPressed: () => context.push(RouteNames.panierRendezVous),
-                                              ),
-                                            ),
+                                          AppToast.show(
+                                            context,
+                                            message: '${s.nom} ajoutée au panier rendez-vous !',
+                                            type: ToastType.rdv,
+                                            duration: const Duration(seconds: 2),
+                                            actionLabel: 'Voir le panier',
+                                            onAction: () => context.push(RouteNames.panierRendezVous),
                                           );
                                         },
                                       ),
@@ -666,18 +696,13 @@ class _RechercheScreenState extends ConsumerState<RechercheScreen> {
                                               imageUrl: p.mainImage,
                                             );
                                           }
-                                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('${p.nom} ajouté au panier !'),
-                                              duration: const Duration(seconds: 2),
-                                              backgroundColor: AppColors.figmaBrown,
-                                              action: SnackBarAction(
-                                                label: 'Voir',
-                                                textColor: AppColors.figmaActiveGold,
-                                                onPressed: () => context.push(RouteNames.panier),
-                                              ),
-                                            ),
+                                          AppToast.show(
+                                            context,
+                                            message: '${p.nom} ajouté au panier !',
+                                            type: ToastType.cart,
+                                            duration: const Duration(seconds: 2),
+                                            actionLabel: 'Voir',
+                                            onAction: () => context.push(RouteNames.panier),
                                           );
                                         },
                                       ),

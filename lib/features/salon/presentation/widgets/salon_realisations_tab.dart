@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_video_player.dart';
 import '../../../../routing/route_names.dart';
 import '../../data/models/realisation_salon_model.dart';
 import '../providers/salon_provider.dart';
@@ -64,8 +65,10 @@ class SalonRealisationsTab extends ConsumerWidget {
     RealisationSalonModel item,
     int index,
   ) {
-    final videoUrl = item.urlVideo;
-    final isNetwork = videoUrl != null && videoUrl.startsWith('http');
+    final rawUrl = item.urlVideo;
+    final thumbUrl = getMediaThumbnailUrl(rawUrl);
+    final cleanThumbUrl = resolveMediaUrl(thumbUrl);
+    final isNetwork = cleanThumbUrl.startsWith('http://') || cleanThumbUrl.startsWith('https://');
     final viewsFormatted = item.totalVues >= 1000
         ? '${(item.totalVues / 1000).toStringAsFixed(1).replaceAll('.', ',')}K'
         : '${item.totalVues}';
@@ -86,14 +89,14 @@ class SalonRealisationsTab extends ConsumerWidget {
             children: [
               if (isNetwork)
                 Image.network(
-                  videoUrl,
+                  cleanThumbUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => _buildPlaceholder(),
                 )
               else
                 Image.asset(
-                  videoUrl != null && videoUrl.isNotEmpty
-                      ? videoUrl
+                  cleanThumbUrl.isNotEmpty
+                      ? cleanThumbUrl
                       : 'assets/images/realisation_img_${(index % 9) + 1}.png',
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => _buildPlaceholder(),

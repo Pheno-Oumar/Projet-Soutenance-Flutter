@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_video_player.dart';
 import 'providers/salon_provider.dart';
 import '../data/models/realisation_salon_model.dart';
 
@@ -26,6 +27,7 @@ class LireRealisationScreen extends ConsumerStatefulWidget {
 class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
   late final PageController _pageController;
   final TextEditingController _commentController = TextEditingController();
+  late int _focusedIndex;
 
   final Set<int> _likedIndexes = {};
   final Set<int> _savedIndexes = {};
@@ -34,6 +36,7 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
   @override
   void initState() {
     super.initState();
+    _focusedIndex = widget.initialIndex;
     _pageController = PageController(initialPage: widget.initialIndex);
   }
 
@@ -45,8 +48,41 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
   }
 
   void _openSalonProfile() {
-    // Ouvre la page du salon directement sur l'onglet Réalisations (tab=2)
     context.push('/salons/${widget.salonSlug}?tab=2');
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      color: const Color(0xFF161210),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+            child: const Icon(
+              Icons.play_circle_fill_rounded,
+              color: AppColors.figmaActiveGold,
+              size: 40,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            widget.salonName,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -66,7 +102,7 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
           ? '${(r.totalLikes / 1000).toStringAsFixed(1).replaceAll('.', ',')}K'
           : '${r.totalLikes}';
       return {
-        'image': r.urlVideo ?? 'assets/images/lire_realisation_img_0.jpeg',
+        'url': r.urlVideo ?? 'assets/images/lire_realisation_img_0.jpeg',
         'title': r.titre,
         'desc': r.description ?? 'Prestation réalisée avec soin.',
         'likes': likesFormatted,
@@ -130,51 +166,50 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
         fit: StackFit.expand,
         children: [
           // ==============================================================
-          // 1. DÉFILEMENT VERTICAL DES RÉALISATIONS DU SALON (PageView)
+          // 1. DÉFILEMENT VERTICAL DES RÉALISATIONS (PageView)
           // ==============================================================
           PageView.builder(
             controller: _pageController,
             scrollDirection: Axis.vertical,
             itemCount: reelsList.length,
+            onPageChanged: (index) {
+              setState(() {
+                _focusedIndex = index;
+              });
+            },
             itemBuilder: (context, index) {
               final item = reelsList[index];
               final isLiked = _likedIndexes.contains(index);
               final isSaved = _savedIndexes.contains(index);
               final isFollowed = _followedSalons.contains(widget.salonSlug);
-              final imgPath = item['image'] as String;
-              final isNetwork = imgPath.startsWith('http');
+              final rawUrl = item['url'] as String;
+              final isVideo = isVideoMedia(rawUrl);
+              final isFocused = _focusedIndex == index;
 
               return Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Photo / Vidéo plein écran
-                  if (isNetwork)
-                    Image.network(
-                      imgPath,
+                  // Lecteur Vidéo (HLS fractionné / MP4) ou Image plein écran
+                  if (isVideo)
+                    AppVideoPlayer(
+                      key: ValueKey('reel_video_${index}_$rawUrl'),
+                      videoUrl: rawUrl,
+                      autoPlay: true,
+                      looping: true,
+                      isPlaying: isFocused,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
-                        color: const Color(0xFF1F1A18),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.play_circle_fill_rounded,
-                          color: Colors.white38,
-                          size: 72,
-                        ),
-                      ),
+                    )
+                  else if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))
+                    Image.network(
+                      resolveMediaUrl(rawUrl),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => _buildPlaceholder(),
                     )
                   else
                     Image.asset(
-                      imgPath,
+                      rawUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => Container(
-                        color: const Color(0xFF1F1A18),
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.play_circle_fill_rounded,
-                          color: Colors.white38,
-                          size: 72,
-                        ),
-                      ),
+                      errorBuilder: (_, _, _) => _buildPlaceholder(),
                     ),
 
                   // Dégradé sombre au bas pour la lisibilité
@@ -182,14 +217,14 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    height: 280,
+                    height: 300,
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.bottomCenter,
                           end: Alignment.topCenter,
                           colors: [
-                            Colors.black.withValues(alpha: 0.90),
+                            Colors.black.withValues(alpha: 0.92),
                             Colors.transparent,
                           ],
                         ),
@@ -271,11 +306,9 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
 
                         const SizedBox(height: 18),
 
-                        // Bouton J'aime (Heart)
+                        // Bouton J'aime
                         _buildActionButton(
-                          icon: isLiked
-                              ? Icons.favorite_rounded
-                              : Icons.favorite_rounded,
+                          icon: Icons.favorite_rounded,
                           color: isLiked ? const Color(0xFFE53935) : Colors.white,
                           label: item['likes'] as String,
                           onTap: () {
@@ -291,7 +324,7 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Bouton Commentaires (Chat bubble)
+                        // Bouton Commentaires
                         _buildActionButton(
                           icon: Icons.chat_bubble_rounded,
                           color: Colors.white,
@@ -301,14 +334,10 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
 
                         const SizedBox(height: 16),
 
-                        // Bouton Enregistrer / Favori (Bookmark)
+                        // Bouton Favori
                         _buildActionButton(
-                          icon: isSaved
-                              ? Icons.bookmark_rounded
-                              : Icons.bookmark_rounded,
-                          color: isSaved
-                              ? AppColors.figmaActiveGold
-                              : Colors.white,
+                          icon: Icons.bookmark_rounded,
+                          color: isSaved ? AppColors.figmaActiveGold : Colors.white,
                           label: item['saves'] as String,
                           onTap: () {
                             setState(() {
@@ -416,7 +445,7 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
           ),
 
           // ==============================================================
-          // 2. BOUTON RETOUR EN HAUT À GAUCHE (Fidèle à lire realisation.svg)
+          // 2. BOUTON RETOUR EN HAUT À GAUCHE
           // ==============================================================
           Positioned(
             top: 0,
@@ -446,8 +475,7 @@ class _LireRealisationScreenState extends ConsumerState<LireRealisationScreen> {
           ),
 
           // ==============================================================
-          // 3. CHAMP DE COMMENTAIRE EN BAS (Fidèle à lire realisation.svg)
-          // Le rectangle EST le TextField avec son suffixIcon emoji
+          // 3. CHAMP DE COMMENTAIRE EN BAS
           // ==============================================================
           Positioned(
             left: 16,

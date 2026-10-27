@@ -1,17 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:video_player/video_player.dart';
 import '../../../core/theme/app_colors.dart';
+import '../../../core/widgets/app_video_player.dart';
 import 'providers/salon_provider.dart';
 import '../data/models/realisation_salon_model.dart';
 
 class StoryItem {
-  final String imagePath;
+  final String mediaUrl;
+  final bool isVideo;
   final String caption;
   final String timestamp;
 
   const StoryItem({
-    required this.imagePath,
+    required this.mediaUrl,
+    this.isVideo = false,
     required this.caption,
     required this.timestamp,
   });
@@ -36,15 +40,20 @@ class StoryScreen extends ConsumerStatefulWidget {
 class _StoryScreenState extends ConsumerState<StoryScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _animController;
+  VideoPlayerController? _videoController;
+
   int _currentIndex = 0;
   int _totalStories = 0;
+  bool _isVideoLoading = false;
+  String? _lastLoadedMediaUrl;
 
   @override
   void initState() {
     super.initState();
+    // Par défaut, le timer photo demandé est de 10 secondes
     _animController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 5),
+      duration: const Duration(seconds: 10),
     );
 
     _animController.addStatusListener((status) {
@@ -52,14 +61,75 @@ class _StoryScreenState extends ConsumerState<StoryScreen>
         _nextStory();
       }
     });
-
-    _animController.forward();
   }
 
   @override
   void dispose() {
     _animController.dispose();
+    _videoController?.pause();
+    _videoController?.dispose();
     super.dispose();
+  }
+
+  void _setupCurrentStory(StoryItem item) {
+    if (_lastLoadedMediaUrl == item.mediaUrl) return;
+    _lastLoadedMediaUrl = item.mediaUrl;
+
+    _animController.stop();
+    _animController.reset();
+
+    _videoController?.pause();
+    _videoController?.dispose();
+    _videoController = null;
+
+    if (item.isVideo) {
+      setState(() {
+        _isVideoLoading = true;
+      });
+
+      final cleanUrl = resolveMediaUrl(item.mediaUrl);
+      final controller = cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')
+          ? VideoPlayerController.networkUrl(
+              Uri.parse(cleanUrl),
+              videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+            )
+          : VideoPlayerController.asset(cleanUrl);
+
+      _videoController = controller;
+
+      controller.initialize().then((_) {
+        if (!mounted || _videoController != controller) {
+          controller.dispose();
+          return;
+        }
+
+        final videoDuration = controller.value.duration;
+        setState(() {
+          _isVideoLoading = false;
+          // Synchronise la durée de la barre de progression sur la vidéo
+          _animController.duration = videoDuration > Duration.zero
+              ? videoDuration
+              : const Duration(seconds: 10);
+        });
+
+        controller.play();
+        _animController.forward(from: 0.0);
+      }).catchError((_) {
+        if (!mounted) return;
+        setState(() {
+          _isVideoLoading = false;
+          _animController.duration = const Duration(seconds: 10);
+        });
+        _animController.forward(from: 0.0);
+      });
+    } else {
+      // Photo story : timer fixé à 10 secondes selon la consigne
+      setState(() {
+        _isVideoLoading = false;
+        _animController.duration = const Duration(seconds: 10);
+      });
+      _animController.forward(from: 0.0);
+    }
   }
 
   void _nextStory() {
@@ -67,8 +137,6 @@ class _StoryScreenState extends ConsumerState<StoryScreen>
       setState(() {
         _currentIndex++;
       });
-      _animController.reset();
-      _animController.forward();
     } else {
       if (mounted) {
         context.pop();
@@ -81,11 +149,13 @@ class _StoryScreenState extends ConsumerState<StoryScreen>
       setState(() {
         _currentIndex--;
       });
-      _animController.reset();
-      _animController.forward();
     } else {
+      // Recommencer la première story
+      _lastLoadedMediaUrl = null;
       _animController.reset();
       _animController.forward();
+      _videoController?.seekTo(Duration.zero);
+      _videoController?.play();
     }
   }
 
@@ -99,59 +169,102 @@ class _StoryScreenState extends ConsumerState<StoryScreen>
     }
   }
 
-  Widget _buildStoryImage(String path) {
-    final cleanPath = path.replaceAll('http://localhost:8080', 'http://10.0.2.2:8080');
-    Widget placeholder() => Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFF2E1C15),
-                Color(0xFF120E0C),
-              ],
+  Widget _buildPlaceholder() {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFF2E1C15),
+            Color(0xFF120E0C),
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 72,
+            height: 72,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.1),
+            ),
+            child: const Icon(
+              Icons.auto_stories_rounded,
+              color: AppColors.figmaActiveGold,
+              size: 36,
             ),
           ),
-          alignment: Alignment.center,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.white.withValues(alpha: 0.1),
-                ),
-                child: const Icon(
-                  Icons.auto_stories_rounded,
-                  color: AppColors.figmaActiveGold,
-                  size: 36,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                widget.salonName,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
+          const SizedBox(height: 12),
+          Text(
+            widget.salonName,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        );
+        ],
+      ),
+    );
+  }
 
+  Widget _buildStoryMedia(StoryItem story) {
+    if (story.isVideo) {
+      if (_isVideoLoading || _videoController == null || !_videoController!.value.isInitialized) {
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _buildPlaceholder(),
+            const Center(
+              child: SizedBox(
+                width: 36,
+                height: 36,
+                child: CircularProgressIndicator(
+                  color: AppColors.figmaActiveGold,
+                  strokeWidth: 2.5,
+                ),
+              ),
+            ),
+          ],
+        );
+      }
+
+      final videoSize = _videoController!.value.size;
+      return SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(
+            width: videoSize.width > 0 ? videoSize.width : 1080,
+            height: videoSize.height > 0 ? videoSize.height : 1920,
+            child: VideoPlayer(_videoController!),
+          ),
+        ),
+      );
+    }
+
+    // Photo story
+    final cleanPath = resolveMediaUrl(story.mediaUrl);
     if (cleanPath.startsWith('http://') || cleanPath.startsWith('https://')) {
       return Image.network(
         cleanPath,
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
-        errorBuilder: (_, _, _) => placeholder(),
+        errorBuilder: (_, _, _) => _buildPlaceholder(),
       );
     }
-    return placeholder();
+    return Image.asset(
+      cleanPath,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: double.infinity,
+      errorBuilder: (_, _, _) => _buildPlaceholder(),
+    );
   }
 
   @override
@@ -249,7 +362,8 @@ class _StoryScreenState extends ConsumerState<StoryScreen>
             ? 'Il y a moins d\'une heure'
             : (hoursAgo < 24 ? 'Il y a ${hoursAgo}h' : 'Hier');
         return StoryItem(
-          imagePath: s.mediaUrl,
+          mediaUrl: s.mediaUrl,
+          isVideo: s.isVideo || isVideoMedia(s.mediaUrl, typeMedia: s.typeMedia),
           caption: '${widget.salonName} • Story exclusive',
           timestamp: timeLabel,
         );
@@ -259,8 +373,10 @@ class _StoryScreenState extends ConsumerState<StoryScreen>
           ? dynamicReels
           : (widget.slug.isEmpty ? fallbackTransversales : <RealisationSalonModel>[]);
       stories = activeList.map((r) {
+        final url = r.urlVideo ?? 'assets/images/story_img_0.jpg';
         return StoryItem(
-          imagePath: r.urlVideo ?? 'assets/images/story_img_0.jpg',
+          mediaUrl: url,
+          isVideo: isVideoMedia(url),
           caption: r.description != null && r.description!.isNotEmpty
               ? '${r.titre} • ${r.description}'
               : r.titre,
@@ -365,17 +481,32 @@ class _StoryScreenState extends ConsumerState<StoryScreen>
 
     final currentStory = stories[_currentIndex.clamp(0, stories.length - 1)];
 
+    // Déclenche l'initialisation de la story courante (vidéo ou photo 10s)
+    if (_lastLoadedMediaUrl != currentStory.mediaUrl) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _setupCurrentStory(currentStory);
+        }
+      });
+    }
+
     return Scaffold(
       backgroundColor: Colors.black,
       body: GestureDetector(
         onTapDown: _onTapDown,
-        onLongPressStart: (_) => _animController.stop(),
-        onLongPressEnd: (_) => _animController.forward(),
+        onLongPressStart: (_) {
+          _animController.stop();
+          _videoController?.pause();
+        },
+        onLongPressEnd: (_) {
+          _animController.forward();
+          _videoController?.play();
+        },
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // 1. IMAGE DE FOND FULLSCREEN
-            _buildStoryImage(currentStory.imagePath),
+            // 1. MÉDIA EN PLEIN ÉCRAN (Vidéo HLS fractionnée / MP4 ou Photo 10s)
+            _buildStoryMedia(currentStory),
 
             // 2. DÉGRADÉ SUPÉRIEUR POUR LA LISIBILITÉ DE L'APP BAR & PROGRESS BARS
             Positioned(
@@ -417,14 +548,37 @@ class _StoryScreenState extends ConsumerState<StoryScreen>
               ),
             ),
 
-            // 4. HEADER SUPÉRIEUR : BARRES DE PROGRESSION & INFOS SALON
+            // 4. LÉGENDE DE LA STORY EN BAS
+            if (currentStory.caption.isNotEmpty)
+              Positioned(
+                bottom: 30,
+                left: 16,
+                right: 16,
+                child: SafeArea(
+                  child: Text(
+                    currentStory.caption,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      shadows: [
+                        Shadow(color: Colors.black87, blurRadius: 4, offset: Offset(0, 1)),
+                      ],
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+
+            // 5. HEADER SUPÉRIEUR : BARRES DE PROGRESSION & INFOS SALON
             SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // A. BARRES DE PROGRESSION SEGMENTÉES (Comme Instagram / WhatsApp)
+                    // A. BARRES DE PROGRESSION SEGMENTÉES
                     Row(
                       children: List.generate(stories.length, (index) {
                         return Expanded(
@@ -460,7 +614,7 @@ class _StoryScreenState extends ConsumerState<StoryScreen>
 
                     const SizedBox(height: 12),
 
-                    // B. INFOS DU SALON & BOUTON FERMER (Figma Stories.svg)
+                    // B. INFOS DU SALON & BOUTON FERMER
                     Row(
                       children: [
                         // Avatar circulaire avec anneau doré

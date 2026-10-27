@@ -42,7 +42,7 @@ class MesReclamationsState {
       orElse: () => SalonItem(
         slug: selectedSalonSlug!,
         nom: 'Salon sélectionné',
-        adresse: 'Dakar',
+        adresse: 'Bamako',
         logo: 'assets/images/rdv_tous_0.png',
       ),
     );
