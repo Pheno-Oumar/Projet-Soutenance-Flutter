@@ -342,81 +342,32 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                       border: context.symmetricBorder(),
                     ),
                     child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         // Durée
-                        Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isDark ? AppColors.darkSurfaceVariant : Colors.white,
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.access_time_filled_rounded,
-                                color: AppColors.figmaActiveGold,
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Durée',
-                                  style: TextStyle(
-                                    fontSize: context.fontSize(11),
-                                    color: context.adaptiveSubtextColor(),
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isDark ? AppColors.darkSurfaceVariant : Colors.white,
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  formattedDuree,
-                                  style: TextStyle(
-                                    fontSize: context.fontSize(13.5),
-                                    fontWeight: FontWeight.w800,
-                                    color: context.adaptiveTextColor(),
-                                  ),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.access_time_filled_rounded,
+                                  color: AppColors.figmaActiveGold,
+                                  size: 20,
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
-
-                        Container(
-                          width: 1,
-                          height: 34,
-                          color: isDark ? AppColors.darkBorder : Colors.black12,
-                        ),
-
-                        // Lieu
-                        Row(
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: isDark ? AppColors.darkSurfaceVariant : Colors.white,
                               ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.location_on_rounded,
-                                color: Color(0xFFE53935),
-                                size: 20,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
+                              const SizedBox(width: 10),
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Salon',
+                                    'Durée',
                                     style: TextStyle(
                                       fontSize: context.fontSize(11),
                                       color: context.adaptiveSubtextColor(),
@@ -425,9 +376,7 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    widget.salonName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
+                                    formattedDuree,
                                     style: TextStyle(
                                       fontSize: context.fontSize(13.5),
                                       fontWeight: FontWeight.w800,
@@ -436,8 +385,65 @@ class _VarianteDetailScreenState extends ConsumerState<VarianteDetailScreen> {
                                   ),
                                 ],
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
+                        ),
+
+                        Container(
+                          width: 1,
+                          height: 34,
+                          color: isDark ? AppColors.darkBorder : Colors.black12,
+                        ),
+
+                        // Lieu / Salon
+                        Expanded(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const SizedBox(width: 8),
+                              Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isDark ? AppColors.darkSurfaceVariant : Colors.white,
+                                ),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.location_on_rounded,
+                                  color: Color(0xFFE53935),
+                                  size: 20,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Salon',
+                                      style: TextStyle(
+                                        fontSize: context.fontSize(11),
+                                        color: context.adaptiveSubtextColor(),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      widget.salonName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontSize: context.fontSize(13.5),
+                                        fontWeight: FontWeight.w800,
+                                        color: context.adaptiveTextColor(),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
