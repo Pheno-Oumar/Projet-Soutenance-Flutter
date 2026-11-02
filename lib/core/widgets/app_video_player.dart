@@ -82,6 +82,7 @@ class AppVideoPlayer extends StatefulWidget {
 
 class _AppVideoPlayerState extends State<AppVideoPlayer> {
   VideoPlayerController? _controller;
+  bool _ownsController = false;
   bool _isInitialized = false;
   bool _hasError = false;
   bool _showPlayPauseIcon = false;
@@ -103,6 +104,7 @@ class _AppVideoPlayerState extends State<AppVideoPlayer> {
 
   void _attachExternalController(VideoPlayerController extController) {
     _controller = extController;
+    _ownsController = false;
     _isInitialized = extController.value.isInitialized;
     _hasError = extController.value.hasError;
     _controller!.addListener(_videoListener);
@@ -120,43 +122,42 @@ class _AppVideoPlayerState extends State<AppVideoPlayer> {
   @override
   void didUpdateWidget(covariant AppVideoPlayer oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.controller != null) {
-      if (widget.controller != oldWidget.controller) {
-        _controller?.removeListener(_videoListener);
+    if (widget.controller != oldWidget.controller) {
+      _disposePlayer();
+      if (widget.controller != null) {
         _attachExternalController(widget.controller!);
-      } else if (_controller != null && _isInitialized) {
-        if (widget.isPlaying != oldWidget.isPlaying) {
-          if (widget.isPlaying) {
-            _isManuallyPaused = false;
-            _controller?.play();
-          } else {
-            _controller?.pause();
-          }
-        }
-      }
-    } else {
-      if (oldWidget.videoUrl != widget.videoUrl) {
-        _disposePlayer();
+      } else {
         _initializePlayer();
-      } else if (_controller != null && _isInitialized) {
-        if (widget.isPlaying != oldWidget.isPlaying) {
-          if (widget.isPlaying) {
-            _isManuallyPaused = false;
-            _controller?.play();
-          } else {
-            _controller?.pause();
-          }
-        }
+      }
+      return;
+    }
+
+    if (widget.controller == null && oldWidget.videoUrl != widget.videoUrl) {
+      _disposePlayer();
+      _initializePlayer();
+      return;
+    }
+
+    if (_controller != null && _isInitialized &&
+        widget.isPlaying != oldWidget.isPlaying) {
+      if (widget.isPlaying) {
+        _isManuallyPaused = false;
+        _controller?.play();
+      } else {
+        _controller?.pause();
       }
     }
   }
 
   void _disposePlayer() {
-    _controller?.removeListener(_videoListener);
-    if (widget.controller == null) {
-      _controller?.dispose();
+    final controller = _controller;
+    controller?.removeListener(_videoListener);
+    if (_ownsController && controller != null) {
+      controller.pause();
+      controller.dispose();
     }
     _controller = null;
+    _ownsController = false;
     _isInitialized = false;
     _hasError = false;
   }
@@ -170,37 +171,44 @@ class _AppVideoPlayerState extends State<AppVideoPlayer> {
       return;
     }
 
+    VideoPlayerController controller;
+    if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+      controller = VideoPlayerController.networkUrl(
+        Uri.parse(cleanUrl),
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
+      );
+    } else {
+      controller = VideoPlayerController.asset(cleanUrl);
+    }
+    _controller = controller;
+    _ownsController = true;
+
     try {
-      if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
-        _controller = VideoPlayerController.networkUrl(
-          Uri.parse(cleanUrl),
-          videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-        );
-      } else {
-        _controller = VideoPlayerController.asset(cleanUrl);
-      }
+      await controller.initialize();
 
-      await _controller!.initialize();
-
-      if (!mounted) {
-        _disposePlayer();
+      if (!mounted || !identical(_controller, controller)) {
         return;
       }
 
-      await _controller!.setLooping(widget.looping);
-      _controller!.addListener(_videoListener);
-
-      if (widget.autoPlay && widget.isPlaying) {
-        await _controller!.play();
+      await controller.setLooping(widget.looping);
+      if (!mounted || !identical(_controller, controller)) {
+        return;
       }
 
+      controller.addListener(_videoListener);
+
+      if (widget.autoPlay && widget.isPlaying) {
+        await controller.play();
+      }
+
+      if (!mounted || !identical(_controller, controller)) return;
       setState(() {
         _isInitialized = true;
       });
 
-      widget.onInitialized?.call(_controller!);
+      widget.onInitialized?.call(controller);
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || !identical(_controller, controller)) return;
       setState(() {
         _hasError = true;
       });
