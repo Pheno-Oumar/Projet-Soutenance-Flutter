@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../routing/route_names.dart';
@@ -12,9 +14,32 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final _pageController = PageController();
   int _currentPage = 0;
+  Timer? _autoAdvanceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _scheduleAutoAdvance();
+  }
+
+  void _scheduleAutoAdvance() {
+    _autoAdvanceTimer?.cancel();
+    _autoAdvanceTimer = Timer(const Duration(seconds: 8), () {
+      if (!mounted) return;
+      if (_currentPage < _pages.length - 1) {
+        _pageController.nextPage(
+          duration: const Duration(milliseconds: 350),
+          curve: Curves.easeInOut,
+        );
+      } else {
+        context.go(RouteNames.home);
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _autoAdvanceTimer?.cancel();
     _pageController.dispose();
     super.dispose();
   }
@@ -50,17 +75,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           itemCount: _pages.length,
           onPageChanged: (index) {
             setState(() => _currentPage = index);
+            _scheduleAutoAdvance();
           },
           itemBuilder: (context, index) => _OnboardingPage(
             data: _pages[index],
             pageIndex: index,
             currentPage: _currentPage,
-            onPrevious: index > 0
-                ? () => _pageController.previousPage(
-                      duration: const Duration(milliseconds: 350),
-                      curve: Curves.easeInOut,
-                    )
-                : null,
             onNext: () {
               if (index < _pages.length - 1) {
                 _pageController.animateToPage(
@@ -101,7 +121,6 @@ class _OnboardingPage extends StatelessWidget {
     required this.data,
     required this.pageIndex,
     required this.currentPage,
-    this.onPrevious,
     required this.onNext,
     required this.onDotTap,
   });
@@ -109,7 +128,6 @@ class _OnboardingPage extends StatelessWidget {
   final _OnboardingData data;
   final int pageIndex;
   final int currentPage;
-  final VoidCallback? onPrevious;
   final VoidCallback onNext;
   final ValueChanged<int> onDotTap;
 
@@ -209,33 +227,6 @@ class _OnboardingPage extends StatelessWidget {
                             );
                           }),
                         ),
-                        if (onPrevious != null)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: SizedBox(
-                              height: 40,
-                              child: OutlinedButton.icon(
-                                onPressed: onPrevious,
-                                icon: const Icon(
-                                  Icons.arrow_back_rounded,
-                                  size: 16,
-                                ),
-                                label: const Text('Précédent'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF925D42),
-                                  side: const BorderSide(color: Color(0xFFD6C3B7)),
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: isNarrowScreen ? 9 : 12,
-                                  ),
-                                  textStyle: TextStyle(
-                                    fontSize: isNarrowScreen ? 12 : 13,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                  shape: const StadiumBorder(),
-                                ),
-                              ),
-                            ),
-                          ),
                         Align(
                           alignment: Alignment.centerRight,
                           child: SizedBox(

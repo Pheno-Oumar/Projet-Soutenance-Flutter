@@ -160,20 +160,9 @@ class NavigationShell extends ConsumerWidget {
           // 3. BOTTOM NAVIGATION BAR (Noire sur Kady's, Marron sur les autres)
           // ==============================================================
           Container(
-            decoration: BoxDecoration(
-              color: isKadysTab
-                  ? Colors.black
-                  : (isDark ? const Color(0xFF1E1A17) : AppColors.figmaBrown),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              border: (isKadysTab || isDark)
-                  ? Border(
-                      top: BorderSide(
-                        color: isDark ? AppColors.darkBorder : const Color(0xFF1E1E1E),
-                        width: 0.8,
-                      ),
-                    )
-                  : null,
-              boxShadow: const [
+            height: 78 + MediaQuery.paddingOf(context).bottom,
+            decoration: const BoxDecoration(
+              boxShadow: [
                 BoxShadow(
                   color: Colors.black26,
                   blurRadius: 10,
@@ -181,49 +170,41 @@ class NavigationShell extends ConsumerWidget {
                 ),
               ],
             ),
-            child: SafeArea(
-              top: false,
-              child: Container(
-                height: 78,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _buildBottomTab(
-                      context,
-                      ref: ref,
-                      index: 0,
-                      label: 'Accueil',
-                      icon: Icons.home_rounded,
-                      isDark: isDark,
-                    ),
-                    _buildBottomTab(
-                      context,
-                      ref: ref,
-                      index: 1,
-                      label: 'Salon',
-                      icon: Icons.storefront_rounded,
-                      isDark: isDark,
-                    ),
-                    _buildBottomTab(
-                      context,
-                      ref: ref,
-                      index: 2,
-                      label: "Kady's",
-                      icon: Icons.play_circle_fill_rounded,
-                      isDark: isDark,
-                    ),
-                    _buildBottomTab(
-                      context,
-                      ref: ref,
-                      index: 3,
-                      label: 'Compte',
-                      icon: Icons.person_rounded,
-                      badgeCount: unreadNotifs,
-                      isDark: isDark,
-                    ),
-                  ],
+            child: CustomPaint(
+              painter: _NavigationNotchPainter(
+                selectedIndex: navigationShell.currentIndex,
+                backgroundColor: AppColors.figmaBrown,
+              ),
+              child: SafeArea(
+                top: false,
+                child: SizedBox(
+                  height: 78,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      _buildBottomTab(context, ref: ref, index: 0, label: 'Accueil',
+                        iconBuilder: (color) => Icon(Icons.home_rounded, size: 38, color: color)),
+                      _buildBottomTab(context, ref: ref, index: 1, label: 'Salon',
+                        iconBuilder: (color) => Image.asset(
+                          'assets/images/menuiconsalon.png',
+                          width: 42,
+                          height: 38,
+                          fit: BoxFit.contain,
+                          color: color,
+                          colorBlendMode: BlendMode.srcIn,
+                        )),
+                      _buildBottomTab(context, ref: ref, index: 2, label: "Kady's",
+                        iconBuilder: (color) => SizedBox(
+                          width: 38, height: 38,
+                          child: Stack(alignment: Alignment.center, children: [
+                            Icon(Icons.crop_square_rounded, size: 38, color: color),
+                            Icon(Icons.play_arrow_rounded, size: 25, color: color),
+                          ]))),
+                      _buildBottomTab(context, ref: ref, index: 3, label: 'Profil',
+                        iconBuilder: (color) => Icon(Icons.person_outline_rounded, size: 38, color: color),
+                        badgeCount: unreadNotifs),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -301,15 +282,11 @@ class NavigationShell extends ConsumerWidget {
     required WidgetRef ref,
     required int index,
     required String label,
-    required IconData icon,
+    required Widget Function(Color color) iconBuilder,
     int badgeCount = 0,
-    bool isDark = false,
   }) {
     final isSelected = navigationShell.currentIndex == index;
-    final itemColor = isSelected
-        ? AppColors.figmaActiveGold
-        : (isDark ? AppColors.darkTextSecondary : Colors.white);
-    final isKadysTab = navigationShell.currentIndex == 2;
+    final itemColor = isSelected ? AppColors.figmaActiveGold : Colors.white;
 
     return Expanded(
       child: InkWell(
@@ -330,15 +307,7 @@ class NavigationShell extends ConsumerWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(
-                    icon,
-                    size: context.responsiveValue<double>(
-                      smallPhone: 26,
-                      standard: 29,
-                      tablet: 32,
-                    ),
-                    color: itemColor,
-                  ),
+                  iconBuilder(itemColor),
                   if (badgeCount > 0)
                     Positioned(
                       top: -2,
@@ -353,9 +322,7 @@ class NavigationShell extends ConsumerWidget {
                           color: const Color(0xFFD32F2F),
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: isKadysTab
-                                ? Colors.black
-                                : (isDark ? const Color(0xFF1E1A17) : AppColors.figmaBrown),
+                            color: AppColors.figmaBrown,
                             width: 1.5,
                           ),
                         ),
@@ -413,4 +380,54 @@ class NavigationShell extends ConsumerWidget {
         break;
     }
   }
+}
+
+class _NavigationNotchPainter extends CustomPainter {
+  final int selectedIndex;
+  final Color backgroundColor;
+
+  const _NavigationNotchPainter({
+    required this.selectedIndex,
+    required this.backgroundColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()..color = backgroundColor,
+    );
+
+    final centerX = size.width * (selectedIndex + 0.5) / 4;
+    final halfWidth = (size.width / 6.7).clamp(54.0, 83.0).toDouble();
+    final bottomHalfWidth = halfWidth * 0.42;
+    final depth = size.height;
+    final notch = Path()
+      ..moveTo(centerX - halfWidth, 0)
+      ..cubicTo(
+        centerX - halfWidth * 0.62,
+        0,
+        centerX - halfWidth * 0.70,
+        depth * 0.58,
+        centerX - bottomHalfWidth,
+        depth * 0.84,
+      )
+      ..quadraticBezierTo(centerX, depth * 1.12, centerX + bottomHalfWidth, depth * 0.84)
+      ..cubicTo(
+        centerX + halfWidth * 0.70,
+        depth * 0.58,
+        centerX + halfWidth * 0.62,
+        0,
+        centerX + halfWidth,
+        0,
+      )
+      ..close();
+
+    canvas.drawPath(notch, Paint()..color = Colors.white);
+  }
+
+  @override
+  bool shouldRepaint(covariant _NavigationNotchPainter oldDelegate) =>
+      oldDelegate.selectedIndex != selectedIndex ||
+      oldDelegate.backgroundColor != backgroundColor;
 }

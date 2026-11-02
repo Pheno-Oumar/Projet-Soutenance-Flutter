@@ -1,7 +1,8 @@
 class ApiEndpoints {
   // Base URLs
   // Réseau local Wi-Fi (accessible depuis émulateur ET appareils physiques réels) :
-  static const String defaultBaseUrl = 'http://192.168.1.22:8080/api/v1/mon-salon';
+  // Ancienne adresse du PC : static const String defaultBaseUrl = 'http://192.168.1.5:8080/api/v1/mon-salon';
+  static const String defaultBaseUrl = 'http://192.168.1.10:8080/api/v1/mon-salon';
   // Émulateur Android uniquement : 'http://10.0.2.2:8080/api/v1/mon-salon'
   // Web / Desktop local : 'http://localhost:8080/api/v1/mon-salon'
 

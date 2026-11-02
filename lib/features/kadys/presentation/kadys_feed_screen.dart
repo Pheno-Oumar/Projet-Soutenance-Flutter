@@ -23,6 +23,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> with WidgetsB
   // 0 = Suivis, 1 = Pour Toi
   int _activeTopTab = 1;
   int _focusedIndex = 0;
+  bool _isTabActive = true;
   final PageController _pageController = PageController();
 
   final Set<int> _savedIds = {};
@@ -55,10 +56,25 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> with WidgetsB
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final isTabActive = TickerMode.of(context);
+    if (_isTabActive == isTabActive) return;
+
+    _isTabActive = isTabActive;
+    final controller = _videoPool[_focusedIndex];
+    if (!_isTabActive) {
+      controller?.pause();
+    } else if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+      controller?.play();
+    }
+  }
+
+  @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _videoPool[_focusedIndex]?.pause();
-    } else if (state == AppLifecycleState.resumed) {
+    } else if (state == AppLifecycleState.resumed && _isTabActive) {
       _videoPool[_focusedIndex]?.play();
     }
   }
@@ -116,7 +132,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> with WidgetsB
       _initializingPoolIndexes.remove(index);
 
       // Si c'est l'élément actif, lancer la lecture
-      if (index == _focusedIndex) {
+      if (index == _focusedIndex && _isTabActive) {
         await controller.play();
       } else {
         // Pré-chargé en arrière-plan : garder en pause, bufferisé
@@ -167,7 +183,11 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> with WidgetsB
     // 3. Lancer la lecture sur le contrôleur actif N
     if (_videoPool.containsKey(focusedIndex)) {
       try {
-        _videoPool[focusedIndex]!.play();
+        if (_isTabActive) {
+          _videoPool[focusedIndex]!.play();
+        } else {
+          _videoPool[focusedIndex]!.pause();
+        }
       } catch (_) {}
     } else {
       _initControllerForIndex(focusedIndex, items);
@@ -204,7 +224,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> with WidgetsB
   void _navigateToSalonRealizations(String slug) {
     _videoPool[_focusedIndex]?.pause();
     context.push('/salons/$slug?tab=2').then((_) {
-      if (mounted) {
+      if (mounted && _isTabActive) {
         _videoPool[_focusedIndex]?.play();
       }
     });
@@ -213,7 +233,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> with WidgetsB
   void _navigateToSearch() {
     _videoPool[_focusedIndex]?.pause();
     context.push(RouteNames.recherche).then((_) {
-      if (mounted) {
+      if (mounted && _isTabActive) {
         _videoPool[_focusedIndex]?.play();
       }
     });
@@ -421,7 +441,7 @@ class _KadysFeedScreenState extends ConsumerState<KadysFeedScreen> with WidgetsB
                         controller: poolController,
                         autoPlay: true,
                         looping: true,
-                        isPlaying: isFocused,
+                        isPlaying: isFocused && _isTabActive,
                         fit: BoxFit.cover,
                       )
                     else if (isNetwork)
